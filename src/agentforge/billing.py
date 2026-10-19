@@ -12,7 +12,7 @@ from contextlib import closing
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from pathlib import Path
 
-from .core import ForgeError
+from .core import ForgeError, redact
 
 APP_ID = 0x41464247
 SCALE = Decimal(1_000_000_000)  # integer nano-dollars, rounded up on reservation
@@ -89,6 +89,8 @@ class BudgetLedger:
     def create(self, account: str, *, dollars, tokens: int, requests: int):
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}", account):
             raise ForgeError("Budget account must be a bounded plain identifier")
+        if redact(account) != account:
+            raise ForgeError("Budget account cannot contain sensitive values")
         if (
             type(tokens) is not int
             or type(requests) is not int
@@ -116,6 +118,9 @@ class BudgetLedger:
 
     def reserve(self, account: str, *, amount, tokens: int, request_hash: str, model: str) -> str:
         money = units(amount)
+        if not isinstance(model, str) or not 1 <= len(model) <= 100:
+            raise ForgeError("Model identifier must be a bounded string")
+        model = redact(model)
         if (
             type(tokens) is not int
             or tokens <= 0
@@ -190,6 +195,7 @@ class BudgetLedger:
         if type(tokens) is not int or tokens < 0 or tokens > 1_000_000_000:
             raise ForgeError("Invalid actual token accounting")
         digest = hashlib.sha256(receipt).hexdigest()
+        note = redact(note)
         with closing(self.connect()) as conn:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute("SELECT * FROM reservations WHERE id=?", (ident,)).fetchone()

@@ -129,3 +129,11 @@ def test_real_transport_requires_durable_reservation_before_sending():
     backend = ResponsesBackend(ModelConfig(model="local"), FreeLocal())
     with pytest.raises(ForgeError, match="persistent budget"):
         backend.request({}, {"type": "object"})
+
+
+def test_reconciliation_notes_are_redacted_at_rest(tmp_path):
+    ledger = BudgetLedger(tmp_path / "budget")
+    ledger.create("shared", dollars=1, tokens=1000, requests=10)
+    ident = reserve(ledger)
+    ledger.reconcile(ident, amount=0, tokens=0, receipt=b"public", note="password=do-not-persist")
+    assert "do-not-persist" not in ledger.db.read_bytes().decode("latin1")

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0a3 — durable budgets and real local model acceptance
+
+- Persist cross-process money/token/request reservations before real inference;
+  retain unknown charges across crashes and add operator reconciliation/history.
+- Add explicitly approved literal-loopback llama.cpp backend with no provider key.
+  Use typed engineering output and target-specific ABI prompts for local models.
+- Add independent invoice, interval and Unicode word-count evaluation domains.
+- Build native offline wheelhouses and verify fresh offline installations in CI.
+- Extend regular CI to Python 3.14/3.15 and validate workflow command structure.
+- Record dependency/static scanner evidence and document the human audit boundary.
+
 ## 0.2.0a2 — sandbox recovery and qualification
 
 - Execute generic Python/stdlib JSON Skills in explicitly selected, sealed CPython/WASI;

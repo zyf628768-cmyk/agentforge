@@ -1,6 +1,6 @@
 # AgentForge
 
-**Local Skill engineering CLI.** Python 3.11+, MIT. Development version: `0.2.0a2`.
+**Local Skill engineering CLI.** Python 3.11+, MIT. Development version: `0.2.0a3`.
 [Public Alpha downloads](https://github.com/zyf628768-cmyk/agentforge/releases) ·
 [CI evidence](https://github.com/zyf628768-cmyk/agentforge/actions).
 [中文](README.zh-CN.md) · [readiness](docs/production-readiness.md)
@@ -15,6 +15,9 @@ It accepts arbitrary implementation code for supported compute-only contracts;
 it is not a switch which maps every goal to the old text-cleaner template.
 The Alpha is publicly released. Windows/Linux and Python 3.11–3.13 CI passed.
 No paid model requests or real credential inspection are part of offline development.
+An explicitly approved [free local model backend](docs/local-model.md) performs
+actual llama.cpp inference. [Shared durable budgets](docs/budgets.md) preserve
+request/token/money limits across processes and restarts; unknown charges remain held.
 Authored protocol fixtures are explicitly labelled; live-model quality acceptance
 and independent security review remain separate qualification gates.
 
@@ -90,8 +93,9 @@ Unknown outcomes retain the reservation; no request is automatically retried.
 **Live requests remain disabled by default.** They require reviewed model config,
 a positive cap/prices, `--approve-model-request`, an explicitly chosen
 `--credential-env`, and a new audit destination. No credentials are automatically
-discovered. This development run used offline fixtures and mocked HTTP only;
-real-model output quality and billing remain untested pending user approval.
+discovered. The paid-provider path uses offline fixtures and mocked HTTP tests;
+actual free local inference is recorded separately. Paid-provider quality and
+billing remain untested pending specific approval.
 See [model backend](docs/model-backend.md).
 
 ## Verification and remaining work

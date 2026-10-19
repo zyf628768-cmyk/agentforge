@@ -105,6 +105,10 @@ def main():
         except Exception as exc:
             result.update(status="failed", error=str(exc)[:2000])
         finally:
+            if getattr(generator, "last_bundle", None):
+                write_json(
+                    args.output / (name + ".model-bundle.json"), generator.last_bundle, safe=True
+                )
             if backend:
                 backend.save_receipts(args.output / (name + ".receipts.json"))
             result["seconds"] = time.monotonic() - start

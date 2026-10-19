@@ -4,7 +4,7 @@
 
 [公开 Alpha 下载](https://github.com/zyf628768-cmyk/agentforge/releases) ·
 [跨平台 CI](https://github.com/zyf628768-cmyk/agentforge/actions) ·
-[生产验收状态](docs/production-readiness.md)。当前开发版本 `0.2.0a2`。
+[生产验收状态](docs/production-readiness.md)。当前开发版本 `0.2.0a3`。
 
 本轮增加通用工程产物包、真实 Responses 协议后端、通用 JSON/WASM 执行、
 更严格的进程资源限额、封存的 CPython/WASI，以及 Python 的 rootless gVisor 容器适配器。
@@ -13,6 +13,10 @@
 项目已公开发布 Alpha，Windows/Linux × Python 3.11–3.13 的六项 CI 已通过。
 免费离线开发不调用付费模型、不检查真实密钥。离线协议夹具明确标记为人工测试数据；
 真实模型质量验收与独立安全审查仍需单独完成。
+
+新增[免费本地模型后端](docs/local-model.md)：显式连接本机 llama.cpp，实际推理，
+与人工协议夹具分开记录。[持久化共享预算](docs/budgets.md)跨进程与重启保留金额、
+Token、调用次数和未知结果预留，支持人工对账；不读取真实供应商密钥。
 
 ## 安装和离线运行
 
@@ -63,7 +67,7 @@ Responses HTTP 后端已实现结构化输出、拒答/截断处理、有限响�
 Token/金额预留及审计记录。真实调用要求显式模型、人工核对的价格和正数预算，
 以及 `--approve-model-request`、显式凭据变量和新的审计路径。
 默认不发现或读取密钥。未知结果保留预算，不盲目重试。实际模型质量、延迟和计费
-尚未测试，需你确认后执行。
+尚未测试，需你确认具体付费调用后执行。本地免费模型有单独的真实验收记录。
 
 Windows WASM 工作进程增加 Job Object：默认 256 MiB 进程组提交内存、有限 CPU
 时间、两个进程（虚拟环境启动器和解释器）、关闭即终止及墙钟看门狗。

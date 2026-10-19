@@ -20,6 +20,12 @@ success; 2 includes failure, refusal, rejected evolution and unverified generic 
 
 Model options for plan/build/evolve:
 
+- `--local-model http://127.0.0.1:PORT/v1/chat/completions`,
+  `--approve-local-model`, zero-priced `--model-config`, and `--budget-account`:
+  actual free local inference. See [local models](local-model.md).
+- `budget create/status/history/reconcile`: durable lifetime budgets and explicit
+  unknown-outcome accounting. Real local/paid calls both require a budget account.
+
 - `--response FILE`: offline `{responses:[Responses-envelope,...]}` fixture.
 - `--model-config FILE`: explicit model/rates/budgets; no automatic live model.
 - `--model-receipts FILE`: mandatory new audit destination outside Skill artifacts.

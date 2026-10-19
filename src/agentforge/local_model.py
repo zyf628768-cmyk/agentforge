@@ -38,7 +38,13 @@ class LocalTransport:
         body = {
             "model": payload["model"],
             "messages": [
-                {"role": "system", "content": payload["instructions"]},
+                {
+                    "role": "system",
+                    "content": payload["instructions"]
+                    + "\nYour reply must be one JSON object conforming to this schema. "
+                    "Write actual source code in source, not a path or filename.\n"
+                    + json.dumps(payload["text"]["format"]["schema"]),
+                },
                 {"role": "user", "content": payload["input"]},
             ],
             "max_tokens": payload["max_output_tokens"],

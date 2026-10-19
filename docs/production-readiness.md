@@ -1,4 +1,4 @@
-# Production readiness — 0.2.0a2
+# Production readiness — 0.2.0a3
 
 Status: **public CLI Alpha; offline isolation and recovery implemented**. Paid model testing is
 explicitly excluded from this development round. An independent security review
@@ -8,7 +8,9 @@ cannot be replaced by the project's own automated checks.
 |---|---|---|
 | General goal/spec | Editable generic JSON contracts and model-assisted planning | Offline Responses fixtures; not arbitrary-goal model quality |
 | General source generation | Provider-neutral code bundles, WASM JSON ABI and Python JSON target | Numeric/ROT13 WASM and CSV Python actually execute; generic code bundle interface |
-| Real model adapter | OpenAI Responses HTTP path, strict output, refusals, usage and budgets | HTTP mocked and protocol fixtures only; no live calls |
+| Real model adapters | OpenAI Responses plus literal-loopback llama.cpp and typed local engineering | Actual free local inference recorded separately; paid-provider HTTP remains mocked |
+| Durable inference budgets | Atomic money/token/request holds, persistent unknown outcomes and explicit reconciliation | Real cross-process contention and hard-exit tests; not a provider-wide billing cap |
+| Broader independent domains | Invoice totals, interval union, Unicode casefold histogram | Authored deterministic artifacts execute against independent oracles; model results reported separately |
 | Repair/evolution | Generic generator injection, filtered feedback, baseline/independent gates and CAS activation | Real numeric defect repair and regression rejection offline |
 | WASM isolation | No imports/WASI, bounded memory/fuel/stack, contained compilation | Real guest tests and Windows OS quota probes |
 | Windows OS quotas | Job committed-memory, process count, CPU user-time and kill-on-close | Actual allocation denial and process-tree timeout probes |
@@ -25,7 +27,8 @@ Before production:
 1. Approve an exact model, key reuse/new-key choice and spend cap, then perform a
    real-model quality/cost/latency acceptance set across several domains. Model
    protocol fixtures do not establish synthesis quality. Prices in config must be
-   reviewed; reservations are per backend invocation, not an account billing cap.
+   reviewed. Shared durable reservations now span processes/restarts using the same
+   home/account; they are not a provider-enforced account billing cap.
 2. Resolve the reviewed upstream gVisor rootless/systemd cgroup defect before
    container qualification. The dedicated runner was provisioned and actual
    qualification attempted; startup failed before guest execution. Retain that

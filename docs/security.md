@@ -1,4 +1,4 @@
-# Security model — 0.2.0a2
+# Security model — 0.2.0a3
 
 Untrusted: generated code/files, provider responses, candidate cases, goals and
 input JSON. Trusted: installed AgentForge/Python, Wasmtime/JIT, OS, selected local
@@ -80,6 +80,14 @@ Live API requests require explicit approval, selected credential variable, revie
 model/prices and bounded budget. No discovery or actual secret reads occurred in
 this offline development run. Receipts exclude keys and preserve metering fields;
 redaction also applies to SQLite evidence. Redaction remains best effort.
+
+Actual free local inference is explicitly selected by literal loopback HTTP with no
+proxy, redirects or provider credential discovery. The server is trusted operator
+software with no model tool execution. Real inference reserves an initialized
+durable budget before transport. Hard exit leaves the hold in SQLite; operator
+reconciliation records receipt hashes and redacted notes. See [budgets](budgets.md),
+[local models](local-model.md) and [scanner review](security-review.md). Scanner
+findings are retained and do not replace an independent human audit.
 
 Paths, aliases, devices, links, metadata overrides and nested writes into existing
 Skills are rejected. Generated scripts are statically parsed. Candidate fixtures

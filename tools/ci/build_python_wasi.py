@@ -34,22 +34,14 @@ def build(output: Path):
             print(Path("wasi-build.log").read_text(encoding="utf-8")[-20000:])
             raise RuntimeError("Trusted runtime build failed; see real compiler log")
 
-    def tool(repo, tag, match):
-        url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
-        req = urllib.request.Request(url, headers={"User-Agent": "AgentForge-runtime-builder"})
-        with urllib.request.urlopen(req, timeout=60) as response:
-            release = json.load(response)
-        choices = [a for a in release["assets"] if match(a["name"])]
-        assert len(choices) == 1, [a["name"] for a in release["assets"]]
-        asset = choices[0]
-        assert asset["browser_download_url"].startswith(
-            f"https://github.com/{repo}/releases/download/{tag}/"
-        )
-        digest = asset.get("digest")
-        assert isinstance(digest, str) and digest.startswith("sha256:")
-        archive = task_dir / asset["name"]
+    def tool(repo, tag, asset_name, sha256):
+        # Digests verified against official release metadata during qualification.
+        # Pin them in source: no mutable metadata lookup or shared-IP API quota.
+        url = f"https://github.com/{repo}/releases/download/{tag}/{asset_name}"
+        digest = "sha256:" + sha256
+        archive = task_dir / asset_name
         with (
-            urllib.request.urlopen(asset["browser_download_url"], timeout=120) as response,
+            urllib.request.urlopen(url, timeout=120) as response,
             archive.open("wb") as target,
         ):
             shutil.copyfileobj(response, target)
@@ -59,19 +51,21 @@ def build(output: Path):
         with tarfile.open(archive) as package:
             package.extractall(extracted, filter="data")
         provenance["releases"].append(
-            {"repository": repo, "tag": tag, "asset": asset["name"], "digest": digest}
+            {"repository": repo, "tag": tag, "asset": asset_name, "digest": digest}
         )
         return next(p for p in extracted.iterdir() if p.is_dir())
 
     sdk = tool(
         "WebAssembly/wasi-sdk",
         "wasi-sdk-34",
-        lambda name: name.startswith("wasi-sdk-34") and name.endswith("x86_64-linux.tar.gz"),
+        "wasi-sdk-34.0-x86_64-linux.tar.gz",
+        "b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4",
     )
     engine = tool(
         "bytecodealliance/wasmtime",
         "v49.0.0",
-        lambda name: name == "wasmtime-v49.0.0-x86_64-linux.tar.xz",
+        "wasmtime-v49.0.0-x86_64-linux.tar.xz",
+        "a956c279ac6e80109369a285db30fc46f68239fa1bbeb03ccfa8e913bbca85fc",
     )
     source = task_dir / "cpython"
     run(["git", "init", source])

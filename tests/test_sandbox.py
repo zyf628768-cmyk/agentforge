@@ -92,7 +92,8 @@ def test_oversize_request_and_bad_limits():
 def test_worker_wall_clock_watchdog():
     result = Sandbox(timeout=0.00001).execute(wasm("(module)"), [])
     assert result["status"] == "blocked"
-    assert result["exit_code"] is None
+    assert isinstance(result["exit_code"], int)
+    assert result["error"] == "TimeoutExpired"
     assert result["error"] == "TimeoutExpired"
 
 

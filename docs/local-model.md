@@ -6,7 +6,7 @@ labelled as fixtures. No provider credentials are discovered or needed.
 
 Provision trusted official binaries and a reviewed GGUF separately; record immutable
 revisions, SHA-256, source URLs and licenses. The local acceptance uses official
-Qwen/Qwen2.5-Coder-3B-Instruct-GGUF and Qwen/Qwen2.5-Coder-7B-Instruct-GGUF Q4_K_M,
+Qwen/Qwen2.5-Coder-{3B,7B,14B}-Instruct-GGUF Q4_K_M,
 with llama.cpp b11669. [Actual results and failures](actual-local-results.md) are
 distinct from offline fixtures. Provisioning downloads
 free software/models; Skill execution never downloads or installs them.
@@ -51,6 +51,28 @@ serializes JSON files correctly. Source remains actual model output; it is never
 replaced with an authored implementation. Python/WASM prompts use the selected
 target's ABI. Generated tests do not determine independent acceptance. Evaluator
 cases stay outside both model requests and Skill artifacts.
+
+Repair feedback identifies generated tests as fallible observations. A model can
+repair generated expectations or invalid example inputs while preserving correct
+source. Semantic preconditions in the goal apply even if the JSON schema cannot
+express them. The model's diagnosis is audit data, never an acceptance decision.
+Private-only failures trigger a repair request without disclosing private cases.
+
+For reproducible eight-domain acceptance, use a model config allowing three
+requests per domain and `--repair-iterations 2 --seconds 2700`. Each domain has
+16 independent positive cases and two invalid-root checks. A separately recorded
+subset trial can use `--domain csv-row-sums`; failed original trials are retained.
+After stopping the model server, run fresh deterministic evaluator seeds without
+additional inference:
+
+```sh
+python tools/recheck_domains.py --summary new-real-model-evidence/summary.json --runtime-config wasi-policy.json --output fresh-holdouts
+```
+
+`tools/qualify_model_repair.py --help` describes a bounded actual-model repair and
+regression experiment. It mutates one AST operator in an existing genuine model
+artifact, executes it only in WASI, then requires independent acceptance of the
+model repair and rejection of a subsequent deliberately regressing candidate.
 
 Small local models can fail generation or behavioral acceptance; those outputs are
 rejected and recorded. A few successful domains do not establish arbitrary-goal

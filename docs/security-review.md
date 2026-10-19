@@ -1,4 +1,10 @@
-# Security review evidence and remaining independent gate
+# Security review evidence
+
+On 2026-10-20, the user confirmed that human security review passed. The direct
+statement and its provenance are saved in
+[human-review-attestation.json](human-review-attestation.json). Reviewer identity,
+covered revision and a written report were not supplied; this document does not
+invent them or claim that the statement covers subsequent changes.
 
 Automated review uses independent scanner implementations, pip-audit and Bandit.
 Run `python tools/security_audit.py --output NEW_DIRECTORY` in a trusted development
@@ -6,9 +12,10 @@ environment with those free tools installed. It saves real commands, exit codes,
 runtime dependency versions and raw findings. Dependency checks send package
 names/versions to the advisory service, not Skill source or credentials.
 
-This is not an independent human security audit. Before production, an independent
-reviewer must assess Wasmtime/CPython/native runtime assumptions, quota enforcement,
-model protocol/receipt boundaries, crash recovery and operator state integrity.
+These automated scans are separate from that user-confirmed human review.
+[Review boundaries](review-handoff.md) remain available for reviewing changes to
+Wasmtime/CPython/native runtime assumptions, quota enforcement, model protocol and
+receipt boundaries, crash recovery and operator state integrity.
 
 The first scan found no known advisories for the installed runtime dependency set.
 That statement is bounded to the recorded versions/advisory response and date;

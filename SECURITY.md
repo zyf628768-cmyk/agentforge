@@ -1,6 +1,6 @@
 # Security policy
 
-Versions: 0.1.x legacy and 0.2.0a1 development milestone. No official remote private
+Versions: 0.1.x legacy and 0.2.0a4 development milestone. No official remote private
 reporting contact is configured for this local project; contact the eventual
 maintainer privately before disclosing exploits or secrets publicly.
 

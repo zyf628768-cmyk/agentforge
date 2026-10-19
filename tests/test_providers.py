@@ -220,10 +220,15 @@ def test_persistent_account_is_checked_before_selected_key_read(tmp_path, monkey
 
 def test_model_planning_seals_identity():
     value = read_json(FIXTURES / "integer-stats.planning-response.json")["responses"][0]
-    backend = ResponsesBackend(ModelConfig(model="offline"), RecordedTransport([value]))
+    transport = RecordedTransport([value])
+    backend = ResponsesBackend(ModelConfig(model="offline"), transport)
     spec = read_json(FIXTURES / "integer-stats.plan.json")
     result = backend.plan(spec["goal"], spec["name"], spec["kind"])
     assert result == spec
+    request = transport.requests[0]
+    assert json.loads(request["input"])["operation"] == "plan"
+    assert "not program source" in request["instructions"]
+    assert "json.load(sys.stdin)" not in request["instructions"]
 
 
 def test_generation_is_extensible_beyond_known_offline_templates(tmp_path):

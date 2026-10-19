@@ -171,7 +171,19 @@ class ResponsesBackend:
             "Input JSON must match the supplied schema directly; do not add a wrapper object."
         )
         target = data.get("spec", data.get("template", {})).get("kind")
-        if data.get("typed_format") == "typed-engineering":
+        planning = data.get("operation") == "plan"
+        if planning:
+            instructions = (
+                "Plan an editable compute-only Agent Skill. Return only the requested object. "
+                "spec_json must contain a complete JSON specification, not program source. "
+                "Refine the supplied template's input/output schemas, steps, risks, acceptance "
+                "and test_plan to match the goal. Preserve name, version, kind and goal exactly. "
+                "Keep dependencies empty and options empty. Record semantic input preconditions "
+                "in steps and acceptance, including conditions not expressible by a schema. "
+                "Use bounded JSON schemas without references, regex or composition keywords. "
+                "Do not request network, credentials, host access or external packages."
+            )
+        elif data.get("typed_format") == "typed-engineering":
             instructions = (
                 "Implement the goal as a complete compute-only program. Return only the "
                 "typed JSON object requested by the schema. The source field contains "
@@ -179,6 +191,9 @@ class ResponsesBackend:
                 "short actual description. tests contains one or two typed cases; "
                 "example_input and example_output are JSON values, never filenames. "
                 "No external dependencies or tools, no markdown fences."
+                " First write contract_summary: the allowed input values and semantic "
+                "preconditions from the goal. This is a contract summary, not test answers. "
+                "Then write the source, tests and examples consistent with that summary."
                 " Re-check arithmetic in your generated tests. Generated expectations are fallible; "
                 "the goal and input/output contract are authoritative. Correct inconsistent tests "
                 "as well as code; do not hardcode the reported example results."
@@ -190,7 +205,7 @@ class ResponsesBackend:
             if data.get("operation") == "repair":
                 instructions += (
                     " This is a repair request. First identify the fault owner in diagnosis: "
-                    "implementation, generated-expectation, both, or uncertain. "
+                    "implementation, generated-input, generated-expectation, both, or uncertain. "
                     "generated_expected is a fallible expectation written by the generator, "
                     "not an authoritative answer key. observed_output is also not an answer key. "
                     "Use the goal and contract to decide which is wrong. If source implements "
@@ -202,7 +217,7 @@ class ResponsesBackend:
                     "values with a new valid small case. Do not broaden the implementation "
                     "to accommodate an out-of-contract generated example."
                 )
-        if target == "python-json":
+        if not planning and target == "python-json":
             instructions += (
                 " Target is Python only. Write a complete top-level program using import json,sys; "
                 "value=json.load(sys.stdin); compute the result; json.dump(result,sys.stdout). "
@@ -213,7 +228,7 @@ class ResponsesBackend:
                 "For a string contract, value is already the text; do not parse it again as JSON. "
                 "For an array contract, iterate value directly. The schema applies to the root value."
             )
-        elif target == "wasm-json":
+        elif not planning and target == "wasm-json":
             instructions += (
                 " Target is WAT only: one 64KiB memory, no imports; JSON UTF8 input at 0, "
                 "output at 32768; export run(i32 input_length)->i32 output_length."
@@ -383,6 +398,7 @@ class ModelGenerator:
         self.last_bundle = None
         self.previous_source = None
         self.last_diagnosis = None
+        self.last_contract_summary = None
 
     def generate(self, spec: dict, destination: Path, variant: str = "correct") -> Path:
         validate(spec)
@@ -416,7 +432,7 @@ class ModelGenerator:
         ][:16]
         previous_diagnosis = self.last_diagnosis
         repairing = typed and (bool(feedback) or self.previous_source is not None)
-        if previous_diagnosis == "generated-expectation":
+        if previous_diagnosis in {"generated-input", "generated-expectation"}:
             # A failed oracle-repair candidate must not keep anchoring later
             # generations on the same known-fallible expected literal.
             for observation in feedback:
@@ -425,8 +441,16 @@ class ModelGenerator:
             schema = {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["source", "readme", "tests", "example_input", "example_output"],
+                "required": [
+                    "contract_summary",
+                    "source",
+                    "readme",
+                    "tests",
+                    "example_input",
+                    "example_output",
+                ],
                 "properties": {
+                    "contract_summary": {"type": "string", "minLength": 1, "maxLength": 500},
                     "source": {"type": "string", "minLength": 1, "maxLength": 12000},
                     "readme": {"type": "string", "minLength": 1, "maxLength": 500},
                     "tests": {
@@ -451,7 +475,13 @@ class ModelGenerator:
             if repairing:
                 diagnosis = {
                     "type": "string",
-                    "enum": ["implementation", "generated-expectation", "both", "uncertain"],
+                    "enum": [
+                        "implementation",
+                        "generated-input",
+                        "generated-expectation",
+                        "both",
+                        "uncertain",
+                    ],
                 }
                 schema["properties"] = {"diagnosis": diagnosis, **schema["properties"]}
                 schema["required"].insert(0, "diagnosis")
@@ -475,6 +505,7 @@ class ModelGenerator:
             )
         value = self.backend.request(data, schema)
         self.last_diagnosis = value.get("diagnosis") if repairing else None
+        self.last_contract_summary = value.get("contract_summary") if typed else None
         bundle = (
             {
                 "files": [

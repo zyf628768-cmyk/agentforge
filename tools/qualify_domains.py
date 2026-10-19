@@ -140,6 +140,8 @@ def main():
         result = {"name": name}
         try:
             artifact = generator.generate(spec, args.output / "skills" / name)
+            if getattr(generator, "last_contract_summary", None):
+                result["model_contract_summary"] = generator.last_contract_summary
             if getattr(generator, "last_bundle", None):
                 write_json(
                     args.output / (name + ".initial-model-bundle.json"),

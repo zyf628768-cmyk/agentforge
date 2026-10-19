@@ -75,6 +75,7 @@ def test_actual_local_inference_is_distinct_from_fixture_and_has_durable_usage(
 def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp_path):
     artifact = {
         "diagnosis": "generated-expectation",
+        "contract_summary": "The root is an integer. Return it unchanged.",
         "source": "import json,sys\njson.dump(json.load(sys.stdin),sys.stdout)\n",
         "readme": "Echo a JSON integer.",
         "tests": [{"id": "self-check", "input": 7, "expected": 7}],

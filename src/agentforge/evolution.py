@@ -206,6 +206,8 @@ def evolve(
             }
             if getattr(generator, "last_diagnosis", None):
                 attempt["model_diagnosis"] = generator.last_diagnosis
+            if getattr(generator, "last_contract_summary", None):
+                attempt["model_contract_summary"] = generator.last_contract_summary
             result["attempts"].append(attempt)
             if comparison["accepted"]:
                 # Explicit evolve is authorization to update a local active pointer only.

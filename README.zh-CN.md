@@ -1,13 +1,18 @@
 # AgentForge
 
-**0.2.0a1：本地工程 Alpha，尚未完成生产资格验证。** Python 3.11+，MIT。
+**本地 Skill 工程 CLI，Python 3.11+，MIT。**
+
+[公开 Alpha 下载](https://github.com/zyf628768-cmyk/agentforge/releases) ·
+[跨平台 CI](https://github.com/zyf628768-cmyk/agentforge/actions) ·
+[生产验收状态](docs/production-readiness.md)。当前开发版本 `0.2.0a2`。
 
 本轮增加通用工程产物包、真实 Responses 协议后端、通用 JSON/WASM 执行、
 更严格的进程资源限额，以及 Python 的 rootless gVisor 容器执行适配器。
 通用生成接口接收实际实现代码，不再局限于文本清洗模板。
 
-本轮没有调用真实模型、检查或读取真实密钥、公开发布或访问生产环境。
-离线协议夹具是人工编写的测试数据，不作为模型能力质量证明。
+项目已公开发布 Alpha，Windows/Linux × Python 3.11–3.13 的六项 CI 已通过。
+免费离线开发不调用付费模型、不检查真实密钥。离线协议夹具明确标记为人工测试数据；
+真实模型质量验收与独立安全审查仍需单独完成。
 
 ## 安装和离线运行
 
@@ -66,8 +71,10 @@ Job/rlimit 是资源控制，不是任意 Python 代码的安全沙盒。
 
 Python 执行要求本地 rootless Docker、cgroup v2、seccomp、gVisor/runsc 与已批准的
 本地镜像 digest。禁止拉取、构建、联网、可写宿主挂载和宿主回退，并在启动前读回
-容器配置核验。本机没有这个环境，所以 Python 实际执行会拒绝；容器适配器目前
-通过的是离线协议和拒绝路径测试，不能据此宣称已完成真实容器安全验证。
+容器配置核验。另要求私有持久租约目录和独立监督进程；监督心跳失效时拒绝新执行，
+中断清理和守护进程恢复后由回收器继续处理。配置及运行命令见
+[隔离环境运维](docs/sandbox-operations.md)。Windows 本机不以普通容器或子进程回退。
+真实 gVisor 验收工作流运行完整攻击与崩溃探针；以其真实产出的报告判定通过状态。
 
 详见 [生产缺口清单](docs/production-readiness.md)、[安全模型](docs/security.md)、
 [模型后端](docs/model-backend.md) 和 [CLI](docs/cli.md)。

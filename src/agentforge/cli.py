@@ -95,8 +95,8 @@ def container_config(args):
     if not getattr(args, "container_config", None):
         return None
     config = read_json(args.container_config)
-    if not isinstance(config, dict) or set(config) != {"image", "socket"}:
-        raise ForgeError("Container policy must contain exactly image and local socket")
+    if not isinstance(config, dict) or set(config) != {"image", "socket", "lease_dir"}:
+        raise ForgeError("Container policy must contain exactly image, local socket and lease_dir")
     return config
 
 
@@ -182,12 +182,45 @@ def parser() -> argparse.ArgumentParser:
         sub.add_argument("--version", required=action == "rollback")
         if action == "export":
             sub.add_argument("--output", type=Path, required=True)
-    commands.add_parser("doctor", help="Probe runtime, actual WASM execution, and local tools")
+    doctor = commands.add_parser(
+        "doctor", help="Probe runtime, actual WASM execution, and local tools"
+    )
+    doctor.add_argument("--container-config", type=Path)
+    sandbox = commands.add_parser("sandbox", help="Supervise durable Python container leases")
+    sandbox_actions = sandbox.add_subparsers(dest="action", required=True)
+    for name in ("supervise", "status", "reap"):
+        action = sandbox_actions.add_parser(
+            name,
+            help={
+                "supervise": "Run the independent crash-recovery supervisor",
+                "status": "Check the daemon, supervisor heartbeat and outstanding leases",
+                "reap": "Retry expired and interrupted container cleanup once",
+            }[name],
+        )
+        action.add_argument("--container-config", type=Path, required=True)
+        if name == "supervise":
+            action.add_argument("--once", action="store_true")
     return cli
 
 
 def dispatch(args: argparse.Namespace) -> tuple[object, int]:
     command = args.command
+    if command == "sandbox":
+        from .containers import PythonContainer
+
+        runtime = PythonContainer(**container_config(args))
+        if args.action == "supervise":
+            return runtime.supervise(once=args.once), 0
+        policy = runtime.preflight()
+        if args.action == "reap":
+            result = runtime.sweep()
+            return result, 2 if result["failed"] else 0
+        store = runtime.lease_store()
+        return {
+            "policy": policy,
+            "supervisor": store.require_reaper(),
+            "outstanding": store.outstanding(),
+        }, 0
     if command == "init":
         target = args.path / "agentforge-plan.json"
         if target.exists():
@@ -340,6 +373,12 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
         else:
             status["ready"] = False
             status["reason"] = "Sandbox missing; untrusted execution refused"
+        if args.container_config:
+            from .containers import PythonContainer
+
+            runtime = PythonContainer(**container_config(args))
+            status["python_container"] = runtime.preflight()
+            status["python_container"]["supervisor"] = runtime.lease_store().require_reaper()
         return status, 0 if status["ready"] else 2
     raise ForgeError("Unknown command")
 

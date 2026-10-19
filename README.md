@@ -1,6 +1,8 @@
 # AgentForge
 
-**0.2.0a1 — local engineering alpha, not production-qualified.** Python 3.11+, MIT.
+**Local Skill engineering CLI.** Python 3.11+, MIT. Development version: `0.2.0a2`.
+[Public Alpha downloads](https://github.com/zyf628768-cmyk/agentforge/releases) ·
+[CI evidence](https://github.com/zyf628768-cmyk/agentforge/actions).
 [中文](README.zh-CN.md) · [readiness](docs/production-readiness.md)
 
 AgentForge turns a goal and editable JSON contract into a complete Skill project,
@@ -11,8 +13,10 @@ This iteration adds provider-neutral engineering bundles, an OpenAI Responses
 backend, generic WASM/JSON execution and a fail-closed Python container adapter.
 It accepts arbitrary implementation code for supported compute-only contracts;
 it is not a switch which maps every goal to the old text-cleaner template.
-No live model, key inspection, publication or production access was used to
-validate this iteration. Authored protocol fixtures are explicitly labelled.
+The Alpha is publicly released. Windows/Linux and Python 3.11–3.13 CI passed.
+No paid model requests or real credential inspection are part of offline development.
+Authored protocol fixtures are explicitly labelled; live-model quality acceptance
+and independent security review remain separate qualification gates.
 
 ## Install
 
@@ -27,7 +31,8 @@ agentforge doctor
 Windows workers use a verified Job Object with a 256 MiB aggregate committed-memory
 cap, finite CPU time, two-process limit (venv launcher + interpreter), kill-on-close
 and an external wall watchdog. Guest WASM has no imports/WASI and one 64 KiB memory.
-Linux has a trusted-worker rlimit implementation; actual Linux qualification is pending.
+Linux trusted-worker rlimits are exercised in CI; guest escape resistance is a
+separate security qualification claim.
 
 ## Generic Skill engineering, entirely offline
 
@@ -42,7 +47,10 @@ agentforge run skills/integer-stats --input skills/integer-stats/examples/input.
 The numeric Skill returns `{"sum":6,"count":3}`. A separate ROT13 implementation
 preserves Unicode and JSON escapes. A Python CSV-column summary project is also
 generated; its execution is blocked until the required rootless gVisor environment
-and approved image digest are supplied. No generated Python is run on the host.
+and approved image digest are supplied, with a private lease directory and live
+independent supervisor. No generated Python is run on the host. See
+[sandbox operations](docs/sandbox-operations.md) for crash recovery and real
+gVisor qualification commands and evidence requirements.
 
 `--bundle FILE` accepts the same engineering format from another generator without
 using a model. A bundle contains real source (`scripts/main.wat` or `main.py`),

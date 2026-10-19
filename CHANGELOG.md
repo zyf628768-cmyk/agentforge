@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0a2 — sandbox recovery and qualification
+
+- Persist leases before container creation; independently supervise expiry, crashes,
+  late daemon responses and cleanup retries. Refuse execution without a live supervisor.
+- Attest container identity, entrypoint, arguments, tmpfs, ulimits, logging, restart
+  policy and auxiliary privileges before starting guest code.
+- Correct nonroot staging permissions; restrict the selected socket's ownership.
+- Add actual rootless-gVisor qualification with hostile guest and crash probes.
+- Correct obsolete publication and cross-platform CI statements in both READMEs.
+
 ## 0.2.0a1 — offline production-readiness milestone
 
 - General JSON contracts and provider-neutral executable engineering bundles.

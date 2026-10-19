@@ -56,10 +56,20 @@ def control(command):
 
 def attesting_control(override=None):
     staged = None
+    name = None
+    policy = None
+    present = False
 
     def call(command):
-        nonlocal staged
+        nonlocal staged, name, policy, present
         if "create" in command:
+            name = command[command.index("--name") + 1]
+            policy = next(
+                c.split("=", 2)[2]
+                for c in command
+                if c.startswith("--label=org.agentforge.policy=")
+            )
+            present = True
             mount = next(c for c in command if c.startswith("type=bind,src="))
             staged = mount.split("src=", 1)[1].split(",dst=", 1)[0]
             return "a" * 64
@@ -77,22 +87,51 @@ def attesting_control(override=None):
                 "CgroupnsMode": "private",
                 "CapDrop": ["ALL"],
                 "SecurityOpt": ["no-new-privileges=true"],
+                "AutoRemove": False,
+                "RestartPolicy": {"Name": "no"},
+                "LogConfig": {"Type": "none"},
+                "Tmpfs": {"/tmp": "rw,noexec,nosuid,nodev,size=16m,mode=1777"},
+                "Ulimits": [
+                    {"Name": n, "Soft": v, "Hard": v}
+                    for n, v in [("nofile", 64), ("fsize", 16777216), ("core", 0), ("nproc", 32)]
+                ],
             }
             host.update(override or {})
             return json.dumps(
                 [
                     {
                         "HostConfig": host,
-                        "Config": {"User": "65534:65534"},
+                        "Name": "/" + name,
+                        "Config": {
+                            "User": "65534:65534",
+                            "Entrypoint": ["python"],
+                            "Cmd": ["-I", "-B", "/skill/scripts/main.py"],
+                            "WorkingDir": "/skill",
+                            "Labels": {
+                                "org.agentforge.managed": "1",
+                                "org.agentforge.policy": policy,
+                                "org.agentforge.lease": name,
+                            },
+                        },
                         "Mounts": [
                             {"Type": "bind", "Destination": "/skill", "Source": staged, "RW": False}
                         ],
                     }
                 ]
             )
+        if "ps" in command:
+            return "a" * 64 if present else ""
+        if "rm" in command:
+            present = False
         return control(command)
 
     return call
+
+
+def prepared_container(tmp_path, **kwargs):
+    container = PythonContainer(image=IMAGE, socket=SOCKET, lease_dir=tmp_path / "leases", **kwargs)
+    container.lease_store().heartbeat("trusted-protocol-test")
+    return container
 
 
 def test_python_artifact_is_generated_but_host_execution_refused(tmp_path):
@@ -139,9 +178,8 @@ def test_container_protocol_pins_controls_and_cleans_after_execution(tmp_path):
         read_json(FIXTURES / "csv-summary.plan.json"), tmp_path / "csv-summary"
     )
     spec = read_json(root / "spec.json")
-    container = PythonContainer(
-        image=IMAGE,
-        socket=SOCKET,
+    container = prepared_container(
+        tmp_path,
         control=attesting_control(),
         attach=lambda command, data, timeout: (0, '{"count":2,"sum":6,"mean":3}', ""),
     )
@@ -173,9 +211,7 @@ def test_container_timeout_still_removes_guest(tmp_path):
     def timed_out(*args):
         raise subprocess.TimeoutExpired("docker", 0.1)
 
-    container = PythonContainer(
-        image=IMAGE, socket=SOCKET, control=attesting_control(), attach=timed_out
-    )
+    container = prepared_container(tmp_path, control=attesting_control(), attach=timed_out)
     report = container.execute(
         root, [read_json(root / "examples/input.json")], read_json(root / "spec.json")
     )
@@ -197,9 +233,8 @@ def test_daemon_settings_are_checked_before_guest_start(tmp_path):
     root = BundleGenerator.from_file(FIXTURES / "csv-summary.bundle.json").generate(
         read_json(FIXTURES / "csv-summary.plan.json"), tmp_path / "csv-summary"
     )
-    container = PythonContainer(
-        image=IMAGE,
-        socket=SOCKET,
+    container = prepared_container(
+        tmp_path,
         control=attesting_control({"Memory": 0}),
         attach=lambda *a: pytest.fail("Unbounded guest must never start"),
     )

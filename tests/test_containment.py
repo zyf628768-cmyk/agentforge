@@ -343,6 +343,39 @@ def test_concurrent_cleanup_requires_confirmed_absence(tmp_path, operation, disa
     assert inventories == 2
 
 
+def test_supervisor_retries_cleanup_without_claiming_healthy(tmp_path, monkeypatch):
+    container = PythonContainer(
+        image=IMAGE, socket=SOCKET, lease_dir=tmp_path / "leases", control=control
+    )
+    store = container.lease_store()
+    reports = iter(
+        [
+            {"failed": [{"error_type": "SandboxUnavailable"}]},
+            {"failed": [], "removed": [], "outstanding": 0},
+        ]
+    )
+    monkeypatch.setattr(container, "sweep", lambda: next(reports))
+    sleeps = 0
+
+    class Finished(Exception):
+        pass
+
+    def observe_sleep(_):
+        nonlocal sleeps
+        sleeps += 1
+        if sleeps == 1:
+            with pytest.raises(ForgeError):
+                store.require_reaper()
+        else:
+            store.require_reaper()
+            raise Finished()
+
+    monkeypatch.setattr("agentforge.containers.time.sleep", observe_sleep)
+    with pytest.raises(Finished):
+        container.supervise()
+    assert sleeps == 2
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Actual Windows Job resource enforcement probe")
 def test_actual_windows_process_memory_quota(tmp_path):
     script = tmp_path / "trusted_memory_probe.py"

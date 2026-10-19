@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -421,10 +422,21 @@ class PythonContainer:
         self.preflight()
         store, owner = self.lease_store(), uuid.uuid4().hex
         while True:
-            report = self.sweep()
+            try:
+                report = self.sweep()
+            except (ForgeError, OSError, ValueError) as exc:
+                report = {"failed": [{"error_type": type(exc).__name__}]}
             if report["failed"]:
-                raise SandboxUnavailable("Sandbox cleanup failed; heartbeat withdrawn")
-            store.heartbeat(owner)
+                store.withdraw(owner)
+                print(
+                    json.dumps({"status": "cleanup-pending", "report": report}),
+                    file=sys.stderr,
+                    flush=True,
+                )
+                if once:
+                    raise SandboxUnavailable("Sandbox cleanup failed; heartbeat withdrawn")
+            else:
+                store.heartbeat(owner)
             if once:
                 return report
             time.sleep(0.5)

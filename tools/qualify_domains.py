@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--local-endpoint")
     parser.add_argument("--model-config", type=Path)
     parser.add_argument("--approve-local-model", action="store_true")
+    parser.add_argument("--example-input", type=Path, action="append")
     parser.add_argument("--repair-iterations", type=int, choices=range(3), default=0)
     parser.add_argument("--seconds", type=float, default=1800)
     parser.add_argument(
@@ -47,10 +48,14 @@ def main():
         if not set(args.domain) <= {domain["name"] for domain in selected}:
             parser.error("Unknown qualification domain")
         selected = [domain for domain in selected if domain["name"] in args.domain]
+    if args.example_input and (not args.local_endpoint or len(selected) != 1):
+        parser.error("Operator example inputs require one explicit actual-model domain")
+    example_inputs = [read_json(path) for path in args.example_input or []]
     config = read_json(args.runtime_config)
     records = {
         "fixture_generation": not bool(args.local_endpoint),
         "paid_api_calls": 0,
+        "operator_example_inputs": example_inputs,
         "domains": [],
         "scope": {
             "domain_count": len(selected),
@@ -113,7 +118,7 @@ def main():
                 account="qualification",
             )
             backend.deadline = deadline
-            generator = ModelGenerator(backend)
+            generator = ModelGenerator(backend, example_inputs=example_inputs)
         else:
             value, expected = domain["cases"][0]
             generator = BundleGenerator(

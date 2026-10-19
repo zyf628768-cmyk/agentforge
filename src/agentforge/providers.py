@@ -23,7 +23,7 @@ from jsonschema import Draft202012Validator
 
 from .artifacts import BUNDLE_SCHEMA, BundleGenerator
 from .billing import BudgetLedger
-from .core import ForgeError, artifact_destination, strict_json, write_json
+from .core import ForgeError, artifact_destination, redact, strict_json, write_json
 from .spec import validate
 
 
@@ -217,6 +217,12 @@ class ResponsesBackend:
                     "values with a new valid small case. Do not broaden the implementation "
                     "to accommodate an out-of-contract generated example."
                 )
+        if data.get("operator_example_inputs"):
+            instructions += (
+                " Operator-reviewed example inputs are provided without expected outputs. "
+                "Use these when choosing tests/examples, compute their results from the goal, "
+                "and implement the full contract, not just those inputs."
+            )
         if not planning and target == "python-json":
             instructions += (
                 " Target is Python only. Write a complete top-level program using import json,sys; "
@@ -392,8 +398,17 @@ class ResponsesBackend:
 
 
 class ModelGenerator:
-    def __init__(self, backend: ResponsesBackend):
+    def __init__(self, backend: ResponsesBackend, *, example_inputs: list | None = None):
         self.backend = backend
+        self.example_inputs = copy.deepcopy(example_inputs if example_inputs is not None else [])
+        if not isinstance(self.example_inputs, list) or len(self.example_inputs) > 3:
+            raise ForgeError("Provide at most three operator-reviewed example inputs")
+        try:
+            encoded = json.dumps(self.example_inputs, ensure_ascii=True, allow_nan=False)
+        except (TypeError, ValueError):
+            raise ForgeError("Example inputs must be finite JSON values") from None
+        if len(encoded.encode()) > 4096 or redact(self.example_inputs) != self.example_inputs:
+            raise ForgeError("Example inputs exceed the size limit or contain sensitive values")
         self.feedback = []
         self.last_bundle = None
         self.previous_source = None
@@ -402,6 +417,11 @@ class ModelGenerator:
 
     def generate(self, spec: dict, destination: Path, variant: str = "correct") -> Path:
         validate(spec)
+        if any(
+            not Draft202012Validator(spec["inputs"]).is_valid(value)
+            for value in self.example_inputs
+        ):
+            raise ForgeError("Operator example input violates the sealed input contract")
         artifact_destination(destination, spec["name"])
         if spec["kind"] not in {"wasm-json", "python-json"} or variant != "correct":
             raise ForgeError("Model backend requires a generic JSON target")
@@ -490,6 +510,8 @@ class ModelGenerator:
             "spec": spec,
             "generated_test_failures": feedback,
         }
+        if self.example_inputs:
+            data["operator_example_inputs"] = self.example_inputs
         if feedback and previous_diagnosis:
             data["previous_model_diagnosis"] = previous_diagnosis
         if self.previous_source is not None:

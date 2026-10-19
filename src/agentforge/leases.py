@@ -114,6 +114,14 @@ class LeaseStore:
                 raise ForgeError("Sandbox supervisor process is unavailable") from exc
         return {"pid": row["pid"], "heartbeat_age_seconds": age, "durable_leases": True}
 
+    def withdraw(self, owner: str) -> None:
+        """Immediately refuse new execution without withdrawing another owner's lease."""
+        with closing(self.connect()) as conn:
+            conn.execute(
+                "UPDATE supervisors SET wall=0, mono=0 WHERE policy=? AND owner=?",
+                (self.policy, owner),
+            )
+
     def reserve(self, seconds: float) -> str:
         if not math.isfinite(seconds) or not 0 < seconds <= 30:
             raise ForgeError("Container lease must have a finite 0..30 second lifetime")

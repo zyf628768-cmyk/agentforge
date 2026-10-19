@@ -2,7 +2,7 @@ name: real-rootless-gvisor
 on:
   push:
     branches: [feat/qualification-completion]
-    paths: ['tools/ci/build_gvisor.sh', 'tools/ci/rootless-gvisor.sh', 'tools/qualify_container.py', '.github/workflows/sandbox.yml', 'src/agentforge/containers.py']
+    paths: ['tools/ci/build_gvisor.sh', 'tools/ci/rootless-gvisor.sh', 'tools/qualify_container.py', 'tools/container_evidence.py', '.github/workflows/sandbox.yml', 'src/agentforge/containers.py', 'src/agentforge/leases.py']
   workflow_dispatch:
     inputs:
       rebuild_runtime:
@@ -28,7 +28,9 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install -e '.[dev]'
       - name: Retrieve the fixed source build whose upstream unit tests passed
+        id: runtime_download
         if: github.event.inputs.rebuild_runtime != 'true'
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: built-pinned-gvisor-runtime
@@ -36,11 +38,11 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/agentforge-gvisor-runtime
       - name: Build the fixed upstream rootless implementation and matching sidecars
-        if: github.event.inputs.rebuild_runtime == 'true'
+        if: github.event.inputs.rebuild_runtime == 'true' || steps.runtime_download.outcome == 'failure'
         run: bash tools/ci/build_gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime"
       - name: Provision an isolated disposable test runner
         run: |
-          if [ '${{ github.event.inputs.rebuild_runtime }}' = 'true' ]; then
+          if [ '${{ github.event.inputs.rebuild_runtime }}' = 'true' ] || [ '${{ steps.runtime_download.outcome }}' = 'failure' ]; then
             task_manifest_sha=$(sha256sum "$RUNNER_TEMP/agentforge-gvisor-runtime/runtime-provenance.json" | cut -d' ' -f1)
           else
             task_manifest_sha=1695472a3820e3ab45a3727e634d15d803847bb9fe812d8a66a21295ecb38587

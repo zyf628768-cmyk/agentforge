@@ -80,6 +80,7 @@ def qualify(config: dict, output: Path, *, daemon_restart: bool) -> dict:
         )
 
     def guest(name, source, *, timeout=5, observe_kernel=False):
+        wait_for(healthy)
         directory = output / "guests" / name
         (directory / "scripts").mkdir(parents=True)
         (directory / "scripts/main.py").write_text(source, encoding="utf-8")
@@ -250,6 +251,7 @@ print(json.dumps({'denied':denied,'children':len(children)}))
         record("actual-fork-quota", result)
 
         # Kill the calling CLI after the daemon confirms a running container.
+        wait_for(healthy)
         crash_root = output / "guests/wall-time"
         child = subprocess.Popen(
             [

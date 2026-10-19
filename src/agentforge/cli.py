@@ -180,9 +180,7 @@ def parser() -> argparse.ArgumentParser:
     reconcile.add_argument("--note", required=True)
     init = commands.add_parser("init", help="Initialize local registry and editable example plan")
     init.add_argument("path", type=Path, nargs="?", default=Path("."))
-    planning = commands.add_parser(
-        "plan", help="Plan editable generic Skill contracts"
-    )
+    planning = commands.add_parser("plan", help="Plan editable generic Skill contracts")
     planning.add_argument("goal")
     planning.add_argument("--name", default="text-cleaner")
     planning.add_argument("--output", type=Path, required=True)
@@ -198,6 +196,12 @@ def parser() -> argparse.ArgumentParser:
     build.add_argument("--output", type=Path, required=True)
     build.add_argument("--variant", choices=["correct", "bug", "regression"], default="correct")
     build.add_argument("--bundle", type=Path, help="Provider-neutral executable file bundle")
+    build.add_argument(
+        "--example-input",
+        type=Path,
+        action="append",
+        help="Operator-reviewed JSON input only; at most three, never evaluator cases",
+    )
     model_arguments(build)
     test = commands.add_parser(
         "test", help="Inspect and execute independent Skill tests in the selected sandbox"
@@ -219,6 +223,12 @@ def parser() -> argparse.ArgumentParser:
     evolution.add_argument("--seconds", type=float, default=30)
     evolution.add_argument("--cost-usd", type=float, default=0)
     evolution.add_argument("--bundle", type=Path, help="Controlled generic repair candidate")
+    evolution.add_argument(
+        "--example-input",
+        type=Path,
+        action="append",
+        help="Operator-reviewed JSON input only; at most three, never evaluator cases",
+    )
     model_arguments(evolution)
     container_arguments(evolution)
     comparison = commands.add_parser(
@@ -344,6 +354,8 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
         write_json(args.output, spec)
         return spec, 0
     if command == "build":
+        if args.example_input and not (args.response or args.model_config or args.local_model):
+            raise ForgeError("Example inputs require an explicitly selected model generator")
         spec = read_json(args.spec)
         if args.output.name != spec.get("name"):
             raise ForgeError("Output directory must match the Skill name")
@@ -358,7 +370,9 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
             from .providers import ModelGenerator
 
             backend = model_backend(args)
-            generator = ModelGenerator(backend)
+            generator = ModelGenerator(
+                backend, example_inputs=[read_json(p) for p in args.example_input or []]
+            )
         else:
             generator = OfflineGenerator()
         try:
@@ -380,6 +394,8 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
         evidence = run_skill(args.skill, value, container_config=container_config(args))
         return evidence["results"][0]["output"], 0
     if command == "evolve":
+        if args.example_input and not (args.response or args.model_config or args.local_model):
+            raise ForgeError("Example inputs require an explicitly selected model generator")
         backend = None
         generator = None
         if args.bundle and (args.response or args.model_config or args.local_model):
@@ -392,7 +408,9 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
             from .providers import ModelGenerator
 
             backend = model_backend(args)
-            generator = ModelGenerator(backend)
+            generator = ModelGenerator(
+                backend, example_inputs=[read_json(p) for p in args.example_input or []]
+            )
         try:
             result = evolve(
                 args.skill,

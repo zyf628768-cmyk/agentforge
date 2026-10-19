@@ -92,7 +92,8 @@ def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp
     transport = RecordedTransport([response, response, response])
     transport.kind = "local-llama.cpp"
     generator = ModelGenerator(
-        ResponsesBackend(ModelConfig(model="test-fixture", max_requests=3), transport)
+        ResponsesBackend(ModelConfig(model="test-fixture", max_requests=3), transport),
+        example_inputs=[7],
     )
     generator.feedback = [
         {
@@ -122,6 +123,7 @@ def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp
     request = transport.requests[0]
     payload = json.loads(request["input"])
     assert payload["operation"] == "repair"
+    assert payload["operator_example_inputs"] == [7]
     assert "PRIVATE-EVALUATOR-SENTINEL" not in request["input"]
     assert payload["generated_test_failures"][0]["generated_expected"] == 8
     assert payload["generated_test_failures"][0]["observation"]["output"] == 7
@@ -139,6 +141,24 @@ def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp
     assert private_retry["operation"] == "repair"
     assert private_retry["generated_test_failures"] == []
     assert "PRIVATE-EVALUATOR-SENTINEL" not in transport.requests[2]["input"]
+
+
+@pytest.mark.parametrize(
+    "examples", [["wrong-root"], [0, 1, 2, 3], ["password=do-not-send"], [float("nan")]]
+)
+def test_invalid_operator_examples_are_refused_before_inference(tmp_path, examples):
+    transport = RecordedTransport([])
+    backend = ResponsesBackend(ModelConfig(model="fixture"), transport)
+    spec = general_plan(
+        "Echo an integer",
+        "echo-integer",
+        "python-json",
+        inputs={"type": "integer"},
+        outputs={"type": "integer"},
+    )
+    with pytest.raises(ForgeError):
+        ModelGenerator(backend, example_inputs=examples).generate(spec, tmp_path / "echo-integer")
+    assert not transport.requests
 
 
 @pytest.mark.parametrize(

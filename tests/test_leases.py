@@ -110,7 +110,20 @@ def test_live_supervisor_cannot_be_silently_replaced(tmp_path):
         store.heartbeat("another-supervisor")
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Actual rootless staging cleanup uses POSIX unlink semantics")
+def test_cleanup_failure_withdraws_only_its_owner_and_can_recover(tmp_path):
+    store = ready_store(tmp_path)
+    store.withdraw("unrelated-owner")
+    store.require_reaper()
+    store.withdraw("trusted-supervisor")
+    with pytest.raises(ForgeError, match="stale"):
+        store.require_reaper()
+    store.heartbeat("trusted-supervisor")
+    store.require_reaper()
+
+
+@pytest.mark.skipif(
+    os.name == "nt", reason="Actual rootless staging cleanup uses POSIX unlink semantics"
+)
 def test_caller_and_supervisor_can_remove_the_same_staging_tree(tmp_path, monkeypatch):
     import shutil
     from concurrent.futures import ThreadPoolExecutor

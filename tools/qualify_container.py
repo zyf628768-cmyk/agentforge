@@ -16,7 +16,7 @@ import threading
 import time
 from pathlib import Path
 
-from container_evidence import assert_limits, cpu_throttled, kernel_snapshot
+from container_evidence import assert_limits, assert_memory_denial, cpu_throttled, kernel_snapshot
 
 from agentforge.artifacts import BundleGenerator
 from agentforge.containers import PythonContainer, capped_attach
@@ -108,10 +108,9 @@ def qualify(config: dict, output: Path, *, daemon_restart: bool) -> dict:
                 thread.join(timeout=12)
                 assert not thread.is_alive(), "Kernel observer did not stop"
 
-        result = PythonContainer(**config, timeout=timeout,
-                                 attach=observed_attach if observe_kernel else None).execute(
-            directory, [{}], {"inputs": {}, "outputs": {}}
-        )
+        result = PythonContainer(
+            **config, timeout=timeout, attach=observed_attach if observe_kernel else None
+        ).execute(directory, [{}], {"inputs": {}, "outputs": {}})
         if observe_kernel:
             result["kernel_samples"] = samples
         write_json(output / (name + ".json"), result, safe=True)
@@ -146,7 +145,7 @@ def qualify(config: dict, output: Path, *, daemon_restart: bool) -> dict:
         try:
             result = guest(
                 "host-access",
-            f"""import json, os, socket, sys
+                f"""import json, os, socket, sys
 json.load(sys.stdin)
 blocked = []
 for path in [{str(canary)!r}, '/etc/agentforge-test-write', '/skill/scripts/main.py']:
@@ -173,19 +172,21 @@ print(json.dumps({{'blocked': blocked}}))
         assert canary.read_text() == "public-dummy-test-data"
         record("filesystem-network-environment-uid", result)
 
-        control = guest("memory-control", "import sys,json\njson.load(sys.stdin)\nx=bytearray(32*1024**2)\nprint(json.dumps({'allocated':len(x)}))\n")
-        assert control["results"][0]["output"] == {"allocated": 32*1024**2}, control
+        control = guest(
+            "memory-control",
+            "import sys,json\njson.load(sys.stdin)\nx=bytearray(32*1024**2)\nprint(json.dumps({'allocated':len(x)}))\n",
+        )
+        assert control["results"][0]["output"] == {"allocated": 32 * 1024**2}, control
         record("actual-memory-positive-control", control)
         result = guest(
             "memory", "import sys\nsys.stdin.read()\nx=bytearray(1024**3)\nprint('{}')\n"
         )
         failure = result["results"][0]
-        assert failure["error_type"] == "GuestExecutionError", result
-        assert failure.get("termination", {}).get("oom_killed") or (
-            failure["exit_code"] == 1 and "\nMemoryError" in failure.get("stderr", "")
-        ), result
+        assert_memory_denial(failure)
         record("actual-memory-quota", result)
-        result = guest("cpu-kernel-quota", """import json,os,sys,time
+        result = guest(
+            "cpu-kernel-quota",
+            """import json,os,sys,time
 json.load(sys.stdin)
 children=[]
 for _ in range(2):
@@ -197,12 +198,17 @@ for _ in range(2):
     children.append(pid)
 for pid in children: os.waitpid(pid,0)
 print(json.dumps({'workers':len(children)}))
-""", timeout=12, observe_kernel=True)
+""",
+            timeout=12,
+            observe_kernel=True,
+        )
         assert result["results"][0]["output"] == {"workers": 2}, result
         assert result["kernel_samples"], "No actual kernel controls were observed"
         for sample in result["kernel_samples"]:
             assert_limits(sample)
-        assert cpu_throttled(result["kernel_samples"]), "CPU bandwidth limit did not throttle two workers"
+        assert cpu_throttled(result["kernel_samples"]), (
+            "CPU bandwidth limit did not throttle two workers"
+        )
         record("actual-kernel-cpu-memory-pid-controls", result)
         result = guest("output-flood", "print('x'*1000000)\n")
         assert result["status"] == "blocked" or not result["results"][0]["ok"], result

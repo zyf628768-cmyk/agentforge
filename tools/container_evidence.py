@@ -1,5 +1,6 @@
 """Read actual kernel controls on the disposable qualification host."""
 
+import re
 from pathlib import Path, PurePosixPath
 
 
@@ -38,3 +39,14 @@ def cpu_throttled(samples):
         return False
     values = [dict(line.split() for line in sample["cpu.stat"].splitlines()) for sample in samples]
     return int(values[-1]["nr_throttled"]) > int(values[0]["nr_throttled"])
+
+
+def assert_memory_denial(failure):
+    if failure.get("error_type") != "GuestExecutionError":
+        raise AssertionError("An unrelated engine failure is not a memory denial")
+    oom = failure.get("termination", {}).get("oom_killed") is True
+    memory_error = failure.get("exit_code") == 1 and re.search(
+        r"(?m)^MemoryError(?::.*)?$", failure.get("stderr", "")
+    )
+    if not (oom or memory_error):
+        raise AssertionError("Require actual OOM evidence or a Python MemoryError")

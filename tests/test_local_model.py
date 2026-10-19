@@ -83,22 +83,38 @@ def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp
     }
     response = {
         "status": "completed",
-        "output": [{"type": "message", "content": [
-            {"type": "output_text", "text": json.dumps(artifact)}
-        ]}],
+        "output": [
+            {"type": "message", "content": [{"type": "output_text", "text": json.dumps(artifact)}]}
+        ],
         "usage": {"input_tokens": 100, "output_tokens": 100},
     }
     transport = RecordedTransport([response])
     transport.kind = "local-llama.cpp"
     generator = ModelGenerator(ResponsesBackend(ModelConfig(model="test-fixture"), transport))
     generator.feedback = [
-        {"id": "self-check", "suite": "unit", "passed": False, "input": 7,
-         "expected": 8, "actual": {"ok": True, "output": 7}},
-        {"id": "private", "suite": "independent", "passed": False,
-         "input": "PRIVATE-EVALUATOR-SENTINEL", "expected": 0},
+        {
+            "id": "self-check",
+            "suite": "unit",
+            "passed": False,
+            "input": 7,
+            "expected": 8,
+            "actual": {"ok": True, "output": 7},
+        },
+        {
+            "id": "private",
+            "suite": "independent",
+            "passed": False,
+            "input": "PRIVATE-EVALUATOR-SENTINEL",
+            "expected": 0,
+        },
     ]
-    spec = general_plan("Echo the input integer", "echo-integer", "python-json",
-                        inputs={"type": "integer"}, outputs={"type": "integer"})
+    spec = general_plan(
+        "Echo the input integer",
+        "echo-integer",
+        "python-json",
+        inputs={"type": "integer"},
+        outputs={"type": "integer"},
+    )
     path = generator.generate(spec, tmp_path / "echo-integer")
     request = transport.requests[0]
     payload = json.loads(request["input"])

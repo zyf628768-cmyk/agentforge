@@ -7,7 +7,7 @@ task_output=$(realpath -m "${1:?runtime output directory is required}")
 test ! -e "$task_output"
 task_source=$(mktemp -d)
 sudo apt-get update -qq
-sudo apt-get install -y --no-install-recommends libbpf-dev libelf-dev clang llvm
+sudo apt-get install -y --no-install-recommends libbpf-dev libelf-dev clang llvm crossbuild-essential-arm64
 git -C "$task_source" init
 git -C "$task_source" remote add origin https://github.com/google/gvisor.git
 git -C "$task_source" fetch --depth=1 origin "$task_commit"

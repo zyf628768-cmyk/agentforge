@@ -11,8 +11,10 @@ from agentforge.artifacts import BundleGenerator
 from agentforge.billing import BudgetLedger
 from agentforge.contracts import contract_hash
 from agentforge.core import read_json, write_json
+from agentforge.evolution import Budget, evolve
 from agentforge.local_model import LocalTransport
 from agentforge.providers import ModelConfig, ModelGenerator, ResponsesBackend
+from agentforge.registry import Registry
 from agentforge.spec import general_plan
 from agentforge.testing import evaluate
 
@@ -24,25 +26,48 @@ def main():
     parser.add_argument("--local-endpoint")
     parser.add_argument("--model-config", type=Path)
     parser.add_argument("--approve-local-model", action="store_true")
+    parser.add_argument("--repair-iterations", type=int, choices=range(3), default=0)
+    parser.add_argument("--seconds", type=float, default=1800)
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Output must be new")
     if args.local_endpoint and (not args.approve_local_model or not args.model_config):
         parser.error("Real local generation requires --model-config and --approve-local-model")
+    if not 30 <= args.seconds <= 3600:
+        parser.error("Phase wall budget must be 30..3600 seconds")
+    if args.repair_iterations and not args.local_endpoint:
+        parser.error("Controlled repair qualification requires actual local inference")
     args.output.mkdir(parents=True)
+    deadline = time.monotonic() + args.seconds
+    selected = domains()
     config = read_json(args.runtime_config)
     records = {
         "fixture_generation": not bool(args.local_endpoint),
         "paid_api_calls": 0,
         "domains": [],
+        "scope": {
+            "domain_count": len(selected),
+            "independent_cases": sum(len(d["cases"]) for d in selected),
+            "repair_iterations": args.repair_iterations,
+            "wall_seconds": args.seconds,
+            "public_reproducible_cases": True,
+        },
     }
     if args.local_endpoint:
         model = ModelConfig(**read_json(args.model_config))
+        if model.max_requests < 1 + args.repair_iterations:
+            parser.error("Model request budget must include initial generation and allowed repairs")
         if model.max_cost_usd or model.input_usd_per_million or model.output_usd_per_million:
             parser.error("Local inference must use zero monetary rates")
         ledger = BudgetLedger(args.output / "billing")
-        ledger.create("qualification", dollars=0, tokens=1000000, requests=10)
-    for domain in domains():
+        ledger.create(
+            "qualification",
+            dollars=0,
+            tokens=1000000,
+            requests=len(selected) * (1 + args.repair_iterations),
+        )
+    registry = Registry(args.output / "registry") if args.repair_iterations else None
+    for domain in selected:
         name = domain["name"]
         start = time.monotonic()
         spec = general_plan(
@@ -67,6 +92,7 @@ def main():
                 ledger=ledger,
                 account="qualification",
             )
+            backend.deadline = deadline
             generator = ModelGenerator(backend)
         else:
             value, expected = domain["cases"][0]
@@ -94,6 +120,12 @@ def main():
         result = {"name": name}
         try:
             artifact = generator.generate(spec, args.output / "skills" / name)
+            if getattr(generator, "last_bundle", None):
+                write_json(
+                    args.output / (name + ".initial-model-bundle.json"),
+                    generator.last_bundle,
+                    safe=True,
+                )
             report = evaluate(
                 artifact,
                 args.output / (name + ".report.json"),
@@ -102,6 +134,31 @@ def main():
                 container_config=config,
             )
             result.update(status=report["status"], metrics=report["metrics"])
+            result["initial_status"] = report["status"]
+            if report["status"] == "failed" and args.repair_iterations:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError("Qualification phase wall budget exhausted")
+                repair = evolve(
+                    artifact,
+                    args.output / "repairs" / name,
+                    registry,
+                    generator=generator,
+                    evaluation_path=evaluation,
+                    container_config=config,
+                    budget=Budget(args.repair_iterations, min(600, remaining), 0),
+                )
+                result["repair"] = repair
+                if repair["accepted"]:
+                    candidate = Path(repair["attempts"][-1]["path"])
+                    final_report = candidate.parent / "evaluation.json"
+                    verified = read_json(final_report)
+                    result.update(
+                        status=verified["status"],
+                        metrics=verified["metrics"],
+                        accepted_artifact=str(candidate),
+                        report=str(final_report),
+                    )
         except Exception as exc:
             result.update(status="failed", error=str(exc)[:2000])
         finally:
@@ -118,6 +175,8 @@ def main():
     records["status"] = (
         "passed" if all(d["status"] == "passed" for d in records["domains"]) else "failed"
     )
+    if args.local_endpoint:
+        records["persistent_budget"] = ledger.status("qualification")
     write_json(args.output / "summary.json", records, safe=True)
     if records["status"] != "passed":
         raise SystemExit(2)

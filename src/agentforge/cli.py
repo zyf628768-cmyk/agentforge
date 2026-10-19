@@ -181,7 +181,7 @@ def parser() -> argparse.ArgumentParser:
     init = commands.add_parser("init", help="Initialize local registry and editable example plan")
     init.add_argument("path", type=Path, nargs="?", default=Path("."))
     planning = commands.add_parser(
-        "plan", help="Plan text-cleaning capabilities; JSON is human-editable"
+        "plan", help="Plan editable generic Skill contracts"
     )
     planning.add_argument("goal")
     planning.add_argument("--name", default="text-cleaner")
@@ -200,12 +200,12 @@ def parser() -> argparse.ArgumentParser:
     build.add_argument("--bundle", type=Path, help="Provider-neutral executable file bundle")
     model_arguments(build)
     test = commands.add_parser(
-        "test", help="Statically inspect and execute WASM tests in isolation"
+        "test", help="Inspect and execute independent Skill tests in the selected sandbox"
     )
     test.add_argument("skill", type=Path)
     test.add_argument("--report", type=Path)
     container_arguments(test)
-    run = commands.add_parser("run", help="Run the WASM entrypoint on JSON input")
+    run = commands.add_parser("run", help="Run the Skill JSON entrypoint in isolation")
     run.add_argument("skill", type=Path)
     run.add_argument("--input", type=Path, help="JSON file; default stdin")
     run.add_argument("--container-config", "--python-runtime-config", type=Path)
@@ -451,6 +451,8 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
             "host_python_execution": False,
             "model_backend": "openai-responses-with-explicit-live-gate",
             "live_model_requests_default": False,
+            "production_qualified": False,
+            "durable_model_budgets": "SQLite per explicit operator home/account",
             "python_container_requires": "local rootless Docker + cgroup v2 + seccomp + runsc + approved digest",
         }
         if status["wasmtime"]:

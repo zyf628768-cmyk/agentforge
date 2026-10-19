@@ -109,7 +109,12 @@ def test_linux_worker_is_terminated_after_parent_killed(tmp_path):
         deadline = time.monotonic() + 3
         while time.monotonic() < deadline:
             status = __import__("pathlib").Path(f"/proc/{child}/stat")
-            if not status.exists() or status.read_text().split()[2] == "Z":
+            try:
+                # Exit may remove /proc between any existence check and read.
+                state = status.read_text().rsplit(") ", 1)[1].split()[0]
+            except (FileNotFoundError, ProcessLookupError):
+                break
+            if state == "Z":
                 break
             time.sleep(0.02)
         else:

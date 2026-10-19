@@ -18,7 +18,8 @@ curl --fail --location --retry 3 --proto '=https' https://github.com/bazelbuild/
 printf '%s  %s\n' 17247e8a84245f59d3bc633d0cfe0a840992a7760a11af1a30012d03da31604c "$task_bazel" | sha256sum -c -
 chmod 0755 "$task_bazel"
 cd "$task_source"
-"$task_bazel" --batch build --jobs=4 --local_resources=memory=6000 -c opt //runsc:runsc //debian:gvisor-bin-tar
+task_bazel_root="$task_source/.bazel-output"
+"$task_bazel" --output_user_root="$task_bazel_root" --batch build --jobs=4 --local_resources=memory=6000 -c opt //runsc:runsc //debian:gvisor-bin-tar
 mkdir -p "$task_output"
 cp bazel-bin/runsc/runsc_/runsc "$task_output/runsc"
 tar -xf bazel-bin/debian/gvisor-bin-tar.tar -C "$task_output"
@@ -38,9 +39,9 @@ task_operator_uid=$(id -u)
 task_operator_gid=$(id -g)
 task_operator_home=$(getent passwd "$task_operator_uid" | cut -d: -f6)
 sudo unshare --mount --propagation private --fork bash -c '
-  mount -t tmpfs -o nosuid,nodev,noexec tmpfs /run
-  exec setpriv --reuid "$1" --regid "$2" --clear-groups env HOME="$3" "$4" --batch test --jobs=4 --local_resources=memory=6000 --test_output=errors //runsc/cgroup:cgroup_test
-' agentforge-cgroup-units "$task_operator_uid" "$task_operator_gid" "$task_operator_home" "$task_bazel"
+  mount -t tmpfs -o nosuid,nodev,noexec tmpfs /run/dbus
+  exec setpriv --reuid "$1" --regid "$2" --clear-groups env -u DBUS_SYSTEM_BUS_ADDRESS -u DBUS_SESSION_BUS_ADDRESS -u XDG_RUNTIME_DIR HOME="$3" "$4" --output_user_root="$5" --batch test --jobs=4 --local_resources=memory=6000 --test_output=errors //runsc/cgroup:cgroup_test
+' agentforge-cgroup-units "$task_operator_uid" "$task_operator_gid" "$task_operator_home" "$task_bazel" "$task_bazel_root"
 python - "$task_output/runtime-provenance.json" <<'PY'
 import json,sys
 from pathlib import Path

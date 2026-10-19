@@ -182,6 +182,10 @@ class ResponsesBackend:
                 " Re-check arithmetic in your generated tests. Generated expectations are fallible; "
                 "the goal and input/output contract are authoritative. Correct inconsistent tests "
                 "as well as code; do not hardcode the reported example results."
+                " The goal may impose semantic input preconditions beyond the JSON schema. "
+                "Choose small fresh test/example inputs that satisfy ALL those preconditions; "
+                "derive every expected value from the goal before writing source. "
+                "Do not invent an extra column, field, coercion or filtering rule."
             )
             if data.get("operation") == "repair":
                 instructions += (
@@ -193,6 +197,10 @@ class ResponsesBackend:
                     "the contract correctly, preserve it and correct inconsistent generated tests "
                     "AND example outputs. Return a complete replacement artifact, not copied "
                     "failure records. Independent evaluation remains external to this request."
+                    " A generated test input can itself violate the goal even when it passes "
+                    "the structural schema. Replace such an input AND its expected/example "
+                    "values with a new valid small case. Do not broaden the implementation "
+                    "to accommodate an out-of-contract generated example."
                 )
         if target == "python-json":
             instructions += (

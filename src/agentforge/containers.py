@@ -151,11 +151,15 @@ class PythonContainer:
                 raise SandboxUnavailable("Python containers require a nonroot Linux operator")
             selected = Path(self.socket.removeprefix("unix://"))
             info_socket = selected.lstat()
+            info_directory = selected.parent.stat()
             if (
                 selected.is_symlink()
                 or not stat.S_ISSOCK(info_socket.st_mode)
                 or info_socket.st_uid != os.getuid()
-                or info_socket.st_mode & 0o022
+                or info_socket.st_mode & 0o002
+                or info_directory.st_uid != os.getuid()
+                or info_directory.st_mode & 0o077
+                or selected.parent.is_symlink()
                 or selected.parent != Path("/run/user") / str(os.getuid())
             ):
                 raise SandboxUnavailable(
@@ -450,6 +454,9 @@ class PythonContainer:
                     target.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
                     shutil.copyfile(source, target)
                     target.chmod(0o644)
+                for directory in staged.rglob("*"):
+                    if directory.is_dir():
+                        directory.chmod(0o755)
                 raw = json.dumps(value, ensure_ascii=True, allow_nan=False)
                 if len(raw) > 32768:
                     raise ForgeError("Container input size limit exceeded")

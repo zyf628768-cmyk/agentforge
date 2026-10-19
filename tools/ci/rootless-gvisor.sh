@@ -4,7 +4,14 @@ set -euo pipefail
 exec > >(tee sandbox-provision.log) 2>&1
 test "$(id -u)" -ne 0
 sudo apt-get update -qq
-sudo apt-get install -y uidmap dbus-user-session slirp4netns docker-ce-rootless-extras zstd
+sudo apt-get install -y uidmap dbus-user-session slirp4netns zstd
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+task_codename=$(python -c 'import platform; print(platform.freedesktop_os_release()["VERSION_CODENAME"])')
+printf 'Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: %s\nComponents: stable\nArchitectures: %s\nSigned-By: /etc/apt/keyrings/docker.asc\n' "$task_codename" "$(dpkg --print-architecture)" | sudo tee /etc/apt/sources.list.d/agentforge-docker.sources
+sudo apt-get update -qq
+sudo apt-get install -y --no-install-recommends docker-ce-rootless-extras
 
 # Official release archive, including the post-2026 gvisor-bin sidecars.
 task_gvisor_dir=$(mktemp -d)

@@ -245,6 +245,66 @@ def test_daemon_settings_are_checked_before_guest_start(tmp_path):
     assert "rm" in container.commands[-1]
 
 
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"LogConfig": {"Type": "json-file"}},
+        {"RestartPolicy": {"Name": "always"}},
+        {"AutoRemove": True},
+        {"Tmpfs": {}},
+        {"PidMode": "host"},
+        {"Ulimits": []},
+        {"Devices": [{"PathOnHost": "/dev/sda"}]},
+    ],
+)
+def test_auxiliary_daemon_changes_are_rejected_before_start(tmp_path, override):
+    root = BundleGenerator.from_file(FIXTURES / "csv-summary.bundle.json").generate(
+        read_json(FIXTURES / "csv-summary.plan.json"), tmp_path / "csv-summary"
+    )
+    container = prepared_container(
+        tmp_path,
+        control=attesting_control(override),
+        attach=lambda *args: pytest.fail("Attestation must precede all guest execution"),
+    )
+    report = container.execute(root, [{}], {"inputs": {}, "outputs": {}})
+    assert report["status"] == "blocked"
+    assert not container.lease_store().outstanding()
+
+
+def test_cleanup_failure_is_reported_and_lease_survives_client_exit(tmp_path):
+    root = BundleGenerator.from_file(FIXTURES / "csv-summary.bundle.json").generate(
+        read_json(FIXTURES / "csv-summary.plan.json"), tmp_path / "csv-summary"
+    )
+    normal = attesting_control()
+
+    def failed_removal(command):
+        if "rm" in command:
+            raise SandboxUnavailable("Daemon unavailable during cleanup")
+        return normal(command)
+
+    container = prepared_container(
+        tmp_path, control=failed_removal, attach=lambda *args: (0, "{}", "")
+    )
+    report = container.execute(root, [{}], {"inputs": {}, "outputs": {}})
+    assert report["status"] == "blocked" and "cleanup pending" in report["error"]
+    row = container.lease_store().outstanding()[0]
+    assert row["state"] == "cleanup-pending"
+    assert container.lease_store().staging(row["name"]).exists()
+
+
+def test_missing_supervisor_refuses_before_container_creation(tmp_path):
+    container = PythonContainer(
+        image=IMAGE,
+        socket=SOCKET,
+        lease_dir=tmp_path / "leases",
+        control=attesting_control(),
+        attach=lambda *args: pytest.fail("No supervisor"),
+    )
+    with pytest.raises(SandboxUnavailable, match="supervisor"):
+        container.execute(tmp_path, [{}], {"inputs": {}, "outputs": {}})
+    assert not any("create" in command for command in container.commands)
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Actual Windows Job resource enforcement probe")
 def test_actual_windows_process_memory_quota(tmp_path):
     script = tmp_path / "trusted_memory_probe.py"

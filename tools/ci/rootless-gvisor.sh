@@ -31,7 +31,12 @@ sudo mkdir -p /etc/systemd/system/user@.service.d
 printf '[Service]\nDelegate=cpu cpuset io memory pids\n' | sudo tee /etc/systemd/system/user@.service.d/agentforge-ci.conf
 sudo systemctl daemon-reload
 sudo loginctl enable-linger "$task_user"
-sudo systemctl restart "user@$task_uid.service"
+sudo systemctl start "user-runtime-dir@$task_uid.service"
+if ! sudo systemctl restart "user@$task_uid.service"; then
+  sudo systemctl status "user@$task_uid.service" --no-pager || true
+  sudo journalctl -u "user@$task_uid.service" --no-pager -n 80
+  exit 1
+fi
 mkdir -p "$HOME/.config/docker"
 python - <<'PY'
 import json

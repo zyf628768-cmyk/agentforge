@@ -88,7 +88,7 @@ def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp
         ],
         "usage": {"input_tokens": 100, "output_tokens": 100},
     }
-    transport = RecordedTransport([response])
+    transport = RecordedTransport([response, response])
     transport.kind = "local-llama.cpp"
     generator = ModelGenerator(ResponsesBackend(ModelConfig(model="test-fixture"), transport))
     generator.feedback = [
@@ -124,3 +124,32 @@ def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp
     assert payload["generated_test_failures"][0]["observation"]["output"] == 7
     assert generator.last_diagnosis == "generated-expectation"
     assert json.loads((path / "tests/cases.json").read_text())[0]["expected"] == 7
+    generator.generate(spec, tmp_path / "retry" / "echo-integer")
+    retry = json.loads(transport.requests[1]["input"])
+    assert retry["previous_model_diagnosis"] == "generated-expectation"
+    assert "generated_expected" not in retry["generated_test_failures"][0]
+    assert "PRIVATE-EVALUATOR-SENTINEL" not in transport.requests[1]["input"]
+
+
+@pytest.mark.parametrize(
+    "envelope",
+    [[], {"choices": [0]}, {"choices": [{"finish_reason": "stop", "message": None}], "usage": {}}],
+)
+def test_malformed_local_envelopes_produce_controlled_refusals(monkeypatch, envelope):
+    class Opener:
+        def open(self, request, timeout):
+            return io.BytesIO(json.dumps(envelope).encode())
+
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *args: Opener())
+    transport = LocalTransport("http://127.0.0.1:31871/v1/chat/completions", approved=True)
+    with pytest.raises(ForgeError):
+        transport.post(
+            {
+                "model": "offline-unit",
+                "instructions": "test",
+                "input": "{}",
+                "max_output_tokens": 64,
+                "text": {"format": {"name": "test", "schema": {}}},
+            },
+            timeout=1,
+        )

@@ -1,7 +1,7 @@
 name: offline-distribution
 on:
   push:
-    branches: [main, feat/production-completion]
+    branches: [main, feat/production-completion, feat/qualification-completion]
   workflow_dispatch:
 permissions:
   contents: read

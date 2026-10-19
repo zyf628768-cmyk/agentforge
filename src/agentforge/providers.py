@@ -406,6 +406,12 @@ class ModelGenerator:
             for case in self.feedback
             if case.get("suite") in {"unit", "integration"} and not case.get("passed", False)
         ][:16]
+        previous_diagnosis = self.last_diagnosis
+        if previous_diagnosis == "generated-expectation":
+            # A failed oracle-repair candidate must not keep anchoring later
+            # generations on the same known-fallible expected literal.
+            for observation in feedback:
+                observation.pop("generated_expected", None)
         if typed:
             schema = {
                 "type": "object",
@@ -445,6 +451,8 @@ class ModelGenerator:
             "spec": spec,
             "generated_test_failures": feedback,
         }
+        if feedback and previous_diagnosis:
+            data["previous_model_diagnosis"] = previous_diagnosis
         if self.previous_source is not None:
             if len(self.previous_source.encode()) > 40000:
                 raise ForgeError("Previous source exceeds bounded model feedback context")

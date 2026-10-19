@@ -73,12 +73,16 @@ class LocalTransport:
             if len(raw) > 1_000_000:
                 raise ForgeError("Local model response exceeds byte limit")
             value = strict_json(raw)
+            if not isinstance(value, dict):
+                raise ForgeError("Local model envelope must be an object")
             choices = value.get("choices")
             usage = value.get("usage")
             if (
                 not isinstance(choices, list)
                 or len(choices) != 1
+                or not isinstance(choices[0], dict)
                 or choices[0].get("finish_reason") != "stop"
+                or not isinstance(choices[0].get("message"), dict)
                 or not isinstance(choices[0].get("message", {}).get("content"), str)
                 or not isinstance(usage, dict)
             ):

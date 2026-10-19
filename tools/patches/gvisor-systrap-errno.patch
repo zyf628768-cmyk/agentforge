@@ -1,0 +1,152 @@
+--- a/pkg/sentry/platform/systrap/subprocess.go
++++ b/pkg/sentry/platform/systrap/subprocess.go
+@@ -101,6 +101,24 @@
+ // requestStub is used to request a new stub process.
+ type requestStub struct {
+ 	done chan *thread
++	err  chan error
++}
++
++// replyResourceError preserves expected host resource failures for the guest.
++// Unknown failures keep the existing diagnostic path.
++func (r requestStub) replyResourceError(err error) bool {
++	var errno unix.Errno
++	switch {
++	case errors.Is(err, unix.EAGAIN):
++		errno = unix.EAGAIN
++	case errors.Is(err, unix.ENOMEM):
++		errno = unix.ENOMEM
++	default:
++		return false
++	}
++	r.err <- errno
++	r.done <- nil
++	return true
+ }
+ 
+ // maxSysmsgThreads is the maximum number of sysmsg threads that a subprocess
+@@ -324,6 +342,9 @@
+ 	case requestStub:
+ 		t, err := ptraceThread.createStub()
+ 		if err != nil {
++			if r.replyResourceError(err) {
++				return
++			}
+ 			handlePtraceSyscallRequestError(req, "unable to create a stub process: %v", err)
+ 			return
+ 		}
+@@ -365,7 +386,6 @@
+ 		memoryFile:        memoryFile,
+ 		sysmsgThreads:     make(map[uint32]*sysmsgThread),
+ 	}
+-	sp.subprocessRefs.InitRefs()
+ 	runtime.LockOSThread()
+ 	defer runtime.UnlockOSThread()
+ 
+@@ -374,6 +394,7 @@
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	sp.subprocessRefs.InitRefs()
+ 	sp.sysmsgInitRegs = ptraceThread.initRegs
+ 
+ 	if err := sp.initSyscallThread(ptraceThread, seccompNotify); err != nil {
+--- a/pkg/sentry/platform/systrap/subprocess_linux.go
++++ b/pkg/sentry/platform/systrap/subprocess_linux.go
+@@ -276,7 +276,7 @@
+ 		arch.SyscallArgument{Value: 0},
+ 		arch.SyscallArgument{Value: 0})
+ 	if err != nil {
+-		return nil, fmt.Errorf("creating stub process: %v", err)
++		return nil, fmt.Errorf("creating stub process: %w", err)
+ 	}
+ 
+ 	// Wait for child to enter group-stop, so we don't stop its
+@@ -301,10 +301,16 @@
+ func (s *subprocess) createStub() (*thread, error) {
+ 	req := requestStub{}
+ 	req.done = make(chan *thread, 1)
++	req.err = make(chan error, 1)
+ 	s.requests <- req
+ 
+ 	childT := <-req.done
+ 	if childT == nil {
++		select {
++		case err := <-req.err:
++			return nil, err
++		default:
++		}
+ 		return nil, fmt.Errorf("createStub: failed to get clone")
+ 	}
+ 	if err := childT.attach(); err != nil {
+--- a/pkg/sentry/platform/systrap/BUILD
++++ b/pkg/sentry/platform/systrap/BUILD
+@@ -111,9 +111,13 @@
+ go_test(
+     name = "systrap_test",
+     size = "small",
+-    srcs = ["context_queue_test.go"],
++    srcs = [
++        "context_queue_test.go",
++        "subprocess_resource_test.go",
++    ],
+     library = ":systrap",
+     deps = [
+         "//pkg/hostarch",
++        "@org_golang_x_sys//unix:go_default_library",
+     ],
+ )
+--- /dev/null
++++ b/pkg/sentry/platform/systrap/subprocess_resource_test.go
+@@ -0,0 +1,51 @@
++// Copyright 2026 AgentForge contributors.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package systrap
++
++import (
++	"errors"
++	"fmt"
++	"testing"
++
++	"golang.org/x/sys/unix"
++)
++
++func TestStubResourceErrnoSurvivesRequest(t *testing.T) {
++	for _, errno := range []unix.Errno{unix.EAGAIN, unix.ENOMEM} {
++		s := &subprocess{requests: make(chan any)}
++		go func() {
++			r := (<-s.requests).(requestStub)
++			if !r.replyResourceError(fmt.Errorf("creating stub process: %w", errno)) {
++				r.err <- errors.New("resource error was not classified")
++				r.done <- nil
++			}
++		}()
++		child, err := s.createStub()
++		got, ok := err.(unix.Errno)
++		if child != nil || !ok || got != errno {
++			t.Fatalf("createStub() = (%v, %T %v), want exact errno %v", child, err, err, errno)
++		}
++	}
++}
++
++func TestStubDoesNotReclassifyUnknownFailure(t *testing.T) {
++	r := requestStub{done: make(chan *thread, 1), err: make(chan error, 1)}
++	if r.replyResourceError(errors.New("unrelated internal failure")) {
++		t.Fatal("unknown failure was incorrectly classified as a resource denial")
++	}
++	if len(r.done) != 0 || len(r.err) != 0 {
++		t.Fatal("unknown failure must retain the original diagnostic path")
++	}
++}

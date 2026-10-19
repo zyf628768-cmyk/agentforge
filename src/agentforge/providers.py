@@ -181,6 +181,10 @@ class ResponsesBackend:
                 "Keep dependencies empty and options empty. Record semantic input preconditions "
                 "in steps and acceptance, including conditions not expressible by a schema. "
                 "Use bounded JSON schemas without references, regex or composition keywords. "
+                "Start inputs and outputs with an explicit root type. A string schema is "
+                '{"type":"string","maxLength":8192}; an object schema uses type=object, '
+                "properties, required and additionalProperties=false. Never use a bare map "
+                "of field names as a schema; fields belong inside properties. "
                 "Do not request network, credentials, host access or external packages."
             )
         elif data.get("typed_format") == "typed-engineering":
@@ -394,6 +398,8 @@ class ResponsesBackend:
         spec = validate(strict_json(value["spec_json"]))
         if any(spec[k] != template[k] for k in ("name", "kind", "version", "goal")):
             raise ForgeError("Provider changed sealed plan identity")
+        if any("type" not in spec[key] for key in ("inputs", "outputs")):
+            raise ForgeError("Model planning must choose explicit input/output root types")
         return spec
 
 

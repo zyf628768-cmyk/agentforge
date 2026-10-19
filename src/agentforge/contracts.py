@@ -12,6 +12,43 @@ from .core import ForgeError
 def check_schema(schema: dict) -> None:
     if not isinstance(schema, dict) or len(json.dumps(schema)) > 16000:
         raise ForgeError("Schema must be a bounded JSON object")
+    supported = {
+        "$schema",
+        "$defs",
+        "definitions",
+        "$comment",
+        "type",
+        "properties",
+        "required",
+        "additionalProperties",
+        "items",
+        "prefixItems",
+        "minItems",
+        "maxItems",
+        "contains",
+        "minContains",
+        "maxContains",
+        "propertyNames",
+        "dependentRequired",
+        "minLength",
+        "maxLength",
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "multipleOf",
+        "minProperties",
+        "maxProperties",
+        "const",
+        "enum",
+        "default",
+        "examples",
+        "title",
+        "description",
+        "deprecated",
+        "readOnly",
+        "writeOnly",
+    }
 
     def walk(value, depth=0):
         if depth > 24:
@@ -38,10 +75,20 @@ def check_schema(schema: dict) -> None:
                     "unevaluatedItems",
                 }:
                     raise ForgeError("Schema references, regex and remote identifiers are disabled")
+                if key not in supported:
+                    raise ForgeError("Unsupported JSON Schema keyword: " + key)
                 if key in {"properties", "$defs", "definitions"} and isinstance(child, dict):
                     for nested in child.values():
                         walk(nested, depth + 1)
-                elif key not in {"const", "enum", "default", "examples", "title", "description"}:
+                elif key not in {
+                    "const",
+                    "enum",
+                    "default",
+                    "examples",
+                    "title",
+                    "description",
+                    "dependentRequired",
+                }:
                     walk(child, depth + 1)
         elif isinstance(value, list):
             for child in value:

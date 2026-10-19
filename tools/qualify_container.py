@@ -235,16 +235,18 @@ print(json.dumps({'workers':len(workers),'completed':sum(completed)}))
 
         result = guest(
             "fork-limit",
-            """import json, os, signal, sys, time
+            """import errno, json, os, signal, sys, time
 sys.stdin.read()
 time.sleep(0.3)
 children=[]
 denied=False
+denial_errno=None
 try:
     for _ in range(64):
         try: pid=os.fork()
-        except OSError:
-            denied=True
+        except OSError as exc:
+            denial_errno=exc.errno
+            denied=exc.errno==errno.EAGAIN
             break
         if pid==0:
             time.sleep(10)
@@ -257,7 +259,7 @@ finally:
     for pid in children:
         try: os.waitpid(pid, 0)
         except OSError: pass
-print(json.dumps({'denied':denied,'children':len(children)}))
+print(json.dumps({'denied':denied,'denial_errno':denial_errno,'children':len(children)}))
 """,
             timeout=10,
             observe_kernel=True,
@@ -266,7 +268,7 @@ print(json.dumps({'denied':denied,'children':len(children)}))
         for sample in result["kernel_samples"]:
             assert_limits(sample)
         if failure.get("ok"):
-            assert failure["output"]["denied"] and failure["output"]["children"] < 32, result
+            assert failure["output"]["denied"] and 0 < failure["output"]["children"] < 32, result
         else:
             assert failure.get("error_type") == "GuestExecutionError" and pid_limit_hit(
                 result["kernel_samples"]

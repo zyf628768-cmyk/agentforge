@@ -73,9 +73,10 @@ dependencies. Automated probes are evidence, not an independent security audit.
 ## gVisor status
 
 The separate rootless gVisor path retains strict cgroup enforcement and supervised
-leases. Actual qualification found upstream rootless/systemd startup failure:
-`Interactive authentication required`. See [upstream fix under review](https://github.com/google/gvisor/pull/13853)
-and [actual failed CI](https://github.com/zyf628768-cmyk/agentforge/actions/runs/39261545029).
-The project does not enable `--ignore-cgroups`, switch to rootful Docker, or claim
-that container hostile-code/crash probes passed when the runtime could not start.
-The gVisor workflow is manual until a reviewed upstream fix is available.
+leases. Earlier startup failures remain recorded, including
+`Interactive authentication required`. The current profile builds an exact
+[upstream fix under review](https://github.com/google/gvisor/pull/13853) plus a
+versioned resource-errno patch. Both native unit suites and actual hostile/crash
+qualification have separate evidence; see [pinned runtime](pinned-gvisor.md) and
+release RESULTS files. The upstream PR remains open. The project never enables
+`--ignore-cgroups`, switches to rootful Docker or substitutes generic subprocesses.

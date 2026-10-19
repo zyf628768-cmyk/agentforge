@@ -1,4 +1,4 @@
-# Security model — 0.2.0a3
+# Security model — 0.2.0a4
 
 Untrusted: generated code/files, provider responses, candidate cases, goals and
 input JSON. Trusted: installed AgentForge/Python, Wasmtime/JIT, OS, selected local
@@ -65,9 +65,11 @@ the supervisor must itself be managed by a restarting service manager. Created
 entrypoint, arguments, labels, tmpfs, ulimits, restart/logging and auxiliary device
 settings are also attested. See [operations](sandbox-operations.md).
 
-The Windows development host cannot run gVisor guests. Actual rootless qualification
-found an upstream systemd/cgroup startup failure; the path remains fail-closed
-without disabling resource controls. See [recorded blocker](python-wasi.md#gvisor-status).
+The Windows development host cannot run gVisor guests. The separate Linux runner
+uses an exact upstream rootless fix plus a versioned systrap resource-errno patch.
+Source, patch, both Go unit suites and matching binary hashes are recorded. Earlier
+startup and hostile-probe failures remain in the evidence; no controls are disabled.
+See [pinned runtime](pinned-gvisor.md) and the release's actual qualification results.
 The dedicated actual-gVisor workflow is the evidence source. Mocked daemon tests alone
 never establish real escape resistance. OS/daemon outages suspend cleanup until
 recovery; a lease is not a guaranteed hard TTL during those outages.

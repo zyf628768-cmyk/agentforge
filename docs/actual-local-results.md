@@ -42,6 +42,14 @@ expectations and root-wrapper mistakes. Later success does not overwrite those
 failures. Planning trials likewise retain failures and distinguish supplied
 contracts, model self-review and independent behavioral acceptance.
 
+The unassisted ASCII-digit planning trials returned a wrapper object despite an
+explicit string-root goal; self-review did not correct it. A subsequent trial used
+the supported operator contract seal, then actual model planning and code generation.
+Its first evaluation launcher requested 45 seconds and was refused by the immutable
+30-second WASI policy. The unchanged artifact is re-evaluated separately at the
+allowed limit, with original receipts and failure retained. This is assisted planning,
+not evidence that unassisted semantic inference is universally reliable.
+
 Every inference server binds literal loopback, disables tools/UI and runs with a
 minimal environment, finite Job Object resources and an explicit deadline. It is
 stopped after the phase. Model source executes only inside CPython/WASI. No paid

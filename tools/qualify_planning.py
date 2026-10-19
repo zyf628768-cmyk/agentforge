@@ -50,6 +50,7 @@ def main():
         {"id": "invalid-null", "input": None, "error_type": "ValidationError"},
         {"id": "invalid-array", "input": [], "error_type": "ValidationError"},
     ]
+    write_json(args.output / "independent-case-set.json", cases)
     ledger = BudgetLedger(args.output / "billing")
     ledger.create("real-plan-build", dollars=0, tokens=100000, requests=3)
     backend = ResponsesBackend(
@@ -83,7 +84,7 @@ def main():
         result["actual_model_generation"] = True
         write_json(args.output / "model.bundle.json", generator.last_bundle, safe=True)
         report = evaluate_batches(
-            skill, spec, cases, args.output / "planning", read_json(args.runtime_config), timeout=45
+            skill, spec, cases, args.output / "planning", read_json(args.runtime_config), timeout=30
         )
         write_json(args.output / "report.json", report, safe=True)
         result.update(

@@ -1,8 +1,8 @@
-include SKILL.md README.zh-CN.md CHANGELOG.md CONTRIBUTING.md SECURITY.md
-recursive-include docs *.md
+include SKILL.md README.zh-CN.md CHANGELOG.md CONTRIBUTING.md SECURITY.md .gitattributes
+recursive-include docs *.md *.json
 recursive-include schemas *.json
 recursive-include examples *
 recursive-include tests *.py
-recursive-include tools *.py
+recursive-include tools *.py *.sh *.patch
 recursive-include .github *.yml
 global-exclude __pycache__ *.py[cod]

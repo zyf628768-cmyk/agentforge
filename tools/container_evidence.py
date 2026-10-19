@@ -71,3 +71,21 @@ def assert_memory_denial(failure):
     )
     if not (oom or memory_error):
         raise AssertionError("Require actual OOM evidence or a Python MemoryError")
+
+
+def assert_bounded_failure(report, kind):
+    if report.get("status") != "completed" or len(report.get("results", [])) != 1:
+        raise AssertionError("Preflight/cleanup failures do not qualify guest resource limits")
+    result = report["results"][0]
+    if result.get("ok") is not False:
+        raise AssertionError("The hostile probe did not encounter its enforced limit")
+    if kind == "output":
+        if result.get("error_type") != "ForgeError" or result.get("error") != (
+            "Container output exceeded 64 KiB stream limit"
+        ):
+            raise AssertionError("Require the actual bounded-stream denial")
+    elif kind == "wall":
+        if result.get("error_type") != "TimeoutExpired" or not report.get("kernel_samples"):
+            raise AssertionError("Require the actual watchdog timeout with live kernel observations")
+    else:
+        raise ValueError("Unknown qualification limit")

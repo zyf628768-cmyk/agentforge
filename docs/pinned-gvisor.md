@@ -21,15 +21,23 @@ resource errors, retains unknown-error diagnostics and initializes references on
 after successful creation. The build runs both upstream cgroup tests and new
 systrap errno tests. It does not raise PID limits or disable cgroups.
 
-CI can reuse the compiled and unit-tested runtime from run `39306103754` with
-manifest SHA-256
-`b08d336946d6cc32d17e0ccd58b7d4af2360cc61d54145a955251374b356e4a1`.
-That run passed the first nine actual containment checks but exposed an isolated
-crash-test launcher import error; its overall qualification failed. The separate
-launcher correction is requalified in a later run. Reusing this build never turns
-that earlier failed run into a pass. Provisioning rechecks source, patch, both
-unit-test results and every binary hash. Artifact expiry or explicit rebuild
-rebuilds the same source. Repository tokens have only contents/artifact read access.
+The patch covers both stub-process and sysmsg-thread creation. The earlier
+stub-only build is retained as failed evidence: another resource path still lost
+errno during repeated fork pressure. It is not an approved substitute for the
+current patch. Release provenance identifies the rebuilt runtime, both Go unit
+suites, every binary hash and the exact qualifying CI run.
+
+CI may reuse only the explicitly pinned rebuilt artifact and manifest hash. The
+provisioner independently rechecks source, patch, both unit-test results and every
+binary. Expired artifacts or an explicit rebuild compile the same source again.
+Repository tokens have only contents/artifact read access.
+
+The rebuilt binary passed both Go unit suites and all 13 actual checks in
+[run 39310217680](https://github.com/zyf628768-cmyk/agentforge/actions/runs/39310217680).
+Its manifest SHA-256 is
+`92aaeb0dcc4f30df27f65c5fb04db690f9b3891ff4b58bc35adc538f8c5b8975`.
+The subsequent strict qualifier repeats fork pressure three times and strengthens
+output/watchdog evidence checks; its separate actual result is in release evidence.
 
 On a dedicated, disposable Ubuntu 24.04 x64 development VM:
 
@@ -54,6 +62,11 @@ unused port. Memory qualification requires a successful allocation below the cap
 and a specific OOM/MemoryError above it. A two-worker CPU workload must produce
 actual kernel throttling while the host observes `cpu.max`, `memory.max` and
 `pids.max`. Missing observations fail qualification. Output limits, wall time,
-fork limits, filesystem/environment restrictions and caller/daemon/supervisor
+three consecutive fork-limit trials with normal EAGAIN returns, filesystem/environment restrictions and caller/daemon/supervisor
 crash recovery are exercised separately. Real job results and failed attempts are
 retained in release evidence; merely building the runtime does not pass these checks.
+
+Output qualification requires the exact bounded-stream error. Wall-time
+qualification requires the watchdog timeout and live kernel observations.
+Preflight failures, cleanup errors, generic exits and native panics never count as
+successful output, timeout or graceful fork-denial checks.

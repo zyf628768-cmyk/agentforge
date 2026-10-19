@@ -17,12 +17,12 @@ import time
 from pathlib import Path
 
 from container_evidence import (
+    assert_bounded_failure,
     assert_limits,
     assert_memory_denial,
     cgroup_snapshot,
     cpu_throttled,
     kernel_snapshot,
-    pid_limit_hit,
 )
 
 from agentforge.artifacts import BundleGenerator
@@ -226,16 +226,23 @@ print(json.dumps({'workers':len(workers),'completed':sum(completed)}))
         )
         record("actual-kernel-cpu-memory-pid-controls", result)
         result = guest("output-flood", "print('x'*1000000)\n")
-        assert result["status"] == "blocked" or not result["results"][0]["ok"], result
+        assert_bounded_failure(result, "output")
         assert len(json.dumps(result)) < 150000
         record("actual-output-cap", result)
-        result = guest("wall-time", "import sys\nsys.stdin.read()\nwhile True: pass\n", timeout=2)
-        assert result["status"] == "blocked" or not result["results"][0]["ok"], result
+        result = guest(
+            "wall-time",
+            "import sys\nsys.stdin.read()\nwhile True: pass\n",
+            timeout=2,
+            observe_kernel=True,
+        )
+        assert_bounded_failure(result, "wall")
         record("actual-wall-time-kill", result)
 
-        result = guest(
-            "fork-limit",
-            """import errno, json, os, signal, sys, time
+        fork_trials = []
+        for trial in range(3):
+            result = guest(
+                f"fork-limit-{trial}",
+                """import errno, json, os, signal, sys, time
 sys.stdin.read()
 time.sleep(0.3)
 children=[]
@@ -261,19 +268,19 @@ finally:
         except OSError: pass
 print(json.dumps({'denied':denied,'denial_errno':denial_errno,'children':len(children)}))
 """,
-            timeout=10,
-            observe_kernel=True,
-        )
-        failure = result["results"][0]
-        for sample in result["kernel_samples"]:
-            assert_limits(sample)
-        if failure.get("ok"):
+                timeout=10,
+                observe_kernel=True,
+            )
+            failure = result["results"][0]
+            assert result["kernel_samples"], "Fork probe requires live kernel controls"
+            for sample in result["kernel_samples"]:
+                assert_limits(sample)
+            # Runtime panics and generic exits never count as graceful resource denial.
+            assert failure.get("ok"), result
+            assert failure["output"]["denial_errno"] == 11, result
             assert failure["output"]["denied"] and 0 < failure["output"]["children"] < 32, result
-        else:
-            assert failure.get("error_type") == "GuestExecutionError" and pid_limit_hit(
-                result["kernel_samples"]
-            ), result
-        record("actual-fork-quota", result)
+            fork_trials.append(result)
+        record("actual-fork-quota", {"repetitions": 3, "trials": fork_trials})
 
         # Kill the calling CLI after the daemon confirms a running container.
         wait_for(healthy)

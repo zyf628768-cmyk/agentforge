@@ -8,7 +8,7 @@ on:
       rebuild_runtime:
         description: Rebuild the pinned and patched runtime instead of reusing its verified binary
         type: boolean
-        default: true
+        default: false
 permissions:
   contents: read
   actions: read
@@ -29,12 +29,12 @@ jobs:
       - run: python -m pip install -e '.[dev]'
       - name: Recover the previously built and unit-tested patched runtime
         id: runtime
-        if: ${{ false }}
+        if: ${{ !inputs.rebuild_runtime }}
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: built-pinned-gvisor-runtime
-          run-id: 39306103754
+          run-id: 39310217680
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/agentforge-gvisor-runtime
       - name: Build the fixed upstream rootless implementation and matching sidecars
@@ -44,7 +44,7 @@ jobs:
         run: |
           task_manifest_sha=$(sha256sum "$RUNNER_TEMP/agentforge-gvisor-runtime/runtime-provenance.json" | cut -d' ' -f1)
           if [ "${{ steps.runtime.outcome }}" = success ]; then
-            test "$task_manifest_sha" = b08d336946d6cc32d17e0ccd58b7d4af2360cc61d54145a955251374b356e4a1
+            test "$task_manifest_sha" = 92aaeb0dcc4f30df27f65c5fb04db690f9b3891ff4b58bc35adc538f8c5b8975
           fi
           bash tools/ci/rootless-gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime" "$task_manifest_sha"
       - name: Exercise actual Python containment and crash recovery

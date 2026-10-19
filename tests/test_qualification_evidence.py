@@ -74,6 +74,42 @@ def test_pid_quota_requires_an_actual_kernel_event_increase():
     assert module.pid_limit_hit([{"pids.events": "max 0"}, {"pids.events": "max 1"}])
 
 
+@pytest.mark.parametrize("kind", ["output", "wall"])
+@pytest.mark.parametrize(
+    "report",
+    [
+        {"status": "blocked", "results": [], "error": "Supervisor unavailable"},
+        {"status": "completed", "results": [{"ok": False, "error_type": "SandboxUnavailable"}]},
+        {"status": "completed", "results": [{"ok": False, "error_type": "GuestExecutionError"}]},
+        {"status": "completed", "results": [{"ok": True, "output": {}}]},
+    ],
+)
+def test_unrelated_outcomes_never_qualify_output_or_wall_limits(kind, report):
+    with pytest.raises(AssertionError):
+        evidence_module().assert_bounded_failure(report, kind)
+
+
+def test_specific_stream_denial_and_observed_watchdog_qualify():
+    module = evidence_module()
+    module.assert_bounded_failure(
+        {
+            "status": "completed",
+            "results": [
+                {
+                    "ok": False,
+                    "error_type": "ForgeError",
+                    "error": "Container output exceeded 64 KiB stream limit",
+                }
+            ],
+        },
+        "output",
+    )
+    wall = {"status": "completed", "results": [{"ok": False, "error_type": "TimeoutExpired"}]}
+    with pytest.raises(AssertionError):
+        module.assert_bounded_failure(wall, "wall")
+    module.assert_bounded_failure({**wall, "kernel_samples": [{"pids.max": "32"}]}, "wall")
+
+
 def test_crash_caller_bootstraps_in_isolated_python_mode():
     helper = Path(__file__).resolve().parents[1] / "tools/qualify_crash_child.py"
     result = subprocess.run(

@@ -19,6 +19,8 @@
   actual kernel CPU/memory/PID controls and CPU throttling in native qualification.
 - Build a fixed upstream rootless gVisor implementation with matching sidecars and
   a hash-verified toolchain; preserve actual compilation/qualification failures.
+- Reject unrelated errors in output/wall qualification and require three graceful fork-denial trials.
+- Include runtime shell scripts, patches and attestation JSON in the source distribution.
 - Record the user's human-review pass statement with explicit evidence provenance.
 
 ## 0.2.0a3 — durable budgets and real local model acceptance

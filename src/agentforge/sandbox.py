@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import time
 from pathlib import Path
@@ -22,6 +23,23 @@ from .process_limits import ResourceContainmentError, bounded_worker
 
 class SandboxUnavailable(ForgeError):
     pass
+
+
+def worker_environment() -> dict[str, str]:
+    """Only OS bootstrap data, derived architecture and no inherited credentials."""
+    if os.name != "nt":
+        return {}
+    # Python 3.11 platform.machine() reads this variable on Windows. Wasmtime uses
+    # that API to select its native library. Derive the value from the Python build
+    # rather than inheriting arbitrary host metadata or the host environment.
+    architectures = {"win-amd64": "AMD64", "win-arm64": "ARM64", "win32": "x86"}
+    architecture = architectures.get(sysconfig.get_platform())
+    if architecture is None:
+        raise SandboxUnavailable("Unsupported Windows Python architecture")
+    return {
+        "SYSTEMROOT": os.environ.get("SYSTEMROOT", "C:\\Windows"),
+        "PROCESSOR_ARCHITECTURE": architecture,
+    }
 
 
 class Sandbox:
@@ -61,7 +79,7 @@ class Sandbox:
             raise ForgeError("Execution input exceeds size limit")
         command = [sys.executable, "-I", "-m", "agentforge._worker"]
         # No inherited keys, Python paths, proxy settings or credentials.
-        env = {"SYSTEMROOT": os.environ.get("SYSTEMROOT", "C:\\Windows")} if os.name == "nt" else {}
+        env = worker_environment()
         started = time.monotonic()
         with tempfile.TemporaryDirectory(prefix="agentforge-worker-") as tmp:
             try:

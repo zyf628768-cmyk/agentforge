@@ -11,12 +11,24 @@ from agentforge.artifacts import BundleGenerator
 from agentforge.containers import PythonContainer, capped_attach
 from agentforge.core import ForgeError, read_json
 from agentforge.process_limits import ResourceContainmentError, bounded_worker
-from agentforge.sandbox import SandboxUnavailable
+from agentforge.sandbox import SandboxUnavailable, worker_environment
 from agentforge.testing import evaluate
 
 FIXTURES = Path(__file__).resolve().parents[1] / "examples/v02"
 IMAGE = "python@sha256:" + "1" * 64
 SOCKET = "unix:///run/user/1000/docker.sock"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows Python 3.11 architecture bootstrap")
+def test_worker_architecture_is_derived_without_inheriting_host_data(monkeypatch):
+    monkeypatch.setenv("PROCESSOR_ARCHITECTURE", "untrusted-host-value")
+    monkeypatch.setenv("AGENTFORGE_SECRET_CANARY", "private-value")
+    monkeypatch.setattr("agentforge.sandbox.sysconfig.get_platform", lambda: "win-amd64")
+    env = worker_environment()
+    assert env == {"SYSTEMROOT": os.environ["SYSTEMROOT"], "PROCESSOR_ARCHITECTURE": "AMD64"}
+    monkeypatch.setattr("agentforge.sandbox.sysconfig.get_platform", lambda: "unknown")
+    with pytest.raises(SandboxUnavailable, match="architecture"):
+        worker_environment()
 
 
 def docker_info():

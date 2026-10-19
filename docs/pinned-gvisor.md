@@ -14,7 +14,7 @@ binary or mixed-version sidecars are used.
 
 The runtime also applies the versioned patch
 `tools/patches/gvisor-systrap-errno.patch` (SHA-256
-`459ebc1d80d2e0e687de54a4f914907bb55e4b103b1e2fd949e9afe840413b97`).
+`3afe5e6446da001e1af53d73893a9a50bc203ebc6613947828c30561d0271aee`).
 An actual fork-limit probe discovered that systrap lost the kernel EAGAIN/ENOMEM
 errno and panicked instead of returning it. The patch preserves only those exact
 resource errors, retains unknown-error diagnostics and initializes references only

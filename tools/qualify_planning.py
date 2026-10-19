@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--runtime-config", type=Path, required=True)
     parser.add_argument("--approve-local-model", action="store_true", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--contract", type=Path, help="Optional operator-reviewed input/output schemas")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Preserve existing qualification evidence")
@@ -62,9 +63,12 @@ def main():
         "actual_model_generation": False,
         "paid_api_calls": 0,
         "independent_cases": len(cases),
+        "operator_contract": read_json(args.contract) if args.contract else None,
     }
     try:
-        spec = backend.plan(goal, "ascii-digit-count", "python-json", review=True)
+        spec = backend.plan(
+            goal, "ascii-digit-count", "python-json", contract=result["operator_contract"], review=True
+        )
         result["actual_model_planning"] = True
         write_json(args.output / "plan.json", spec)
         if spec["inputs"].get("type") != "string":

@@ -5,7 +5,7 @@ exec > >(tee gvisor-build.log) 2>&1
 task_commit=8ecc635e5e32b8eb1cb2acdc308d480f00bf7264
 task_patch=$(realpath "$(dirname "${BASH_SOURCE[0]}")/../patches/gvisor-systrap-errno.patch")
 task_patch_sha=$(sha256sum "$task_patch" | cut -d' ' -f1)
-test "$task_patch_sha" = 459ebc1d80d2e0e687de54a4f914907bb55e4b103b1e2fd949e9afe840413b97
+test "$task_patch_sha" = 3afe5e6446da001e1af53d73893a9a50bc203ebc6613947828c30561d0271aee
 task_output=$(realpath -m "${1:?runtime output directory is required}")
 test ! -e "$task_output"
 task_source=$(mktemp -d)

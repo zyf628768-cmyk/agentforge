@@ -1,6 +1,12 @@
 --- a/pkg/sentry/platform/systrap/subprocess.go
 +++ b/pkg/sentry/platform/systrap/subprocess.go
-@@ -101,6 +101,24 @@
+@@ -96,11 +96,47 @@
+ // be sent into the thread channel.
+ type requestThread struct {
+ 	thread chan *thread
++	err    chan error
+ }
+ 
  // requestStub is used to request a new stub process.
  type requestStub struct {
  	done chan *thread
@@ -22,10 +28,37 @@
 +	r.err <- errno
 +	r.done <- nil
 +	return true
++}
++
++// replyResourceError preserves expected host resource failures for the guest.
++// Unknown failures keep the existing diagnostic path.
++func (r requestThread) replyResourceError(err error) bool {
++	var errno unix.Errno
++	switch {
++	case errors.Is(err, unix.EAGAIN):
++		errno = unix.EAGAIN
++	case errors.Is(err, unix.ENOMEM):
++		errno = unix.ENOMEM
++	default:
++		return false
++	}
++	r.err <- errno
++	r.thread <- nil
++	return true
  }
  
  // maxSysmsgThreads is the maximum number of sysmsg threads that a subprocess
-@@ -324,6 +342,9 @@
+@@ -255,6 +291,9 @@
+ 	case requestThread:
+ 		t, err := ptraceThread.clone()
+ 		if err != nil {
++			if r.replyResourceError(err) {
++				return
++			}
+ 			handlePtraceSyscallRequestError(req, "error initializing thread: %v", err)
+ 			return
+ 		}
+@@ -324,6 +363,9 @@
  	case requestStub:
  		t, err := ptraceThread.createStub()
  		if err != nil {
@@ -35,7 +68,7 @@
  			handlePtraceSyscallRequestError(req, "unable to create a stub process: %v", err)
  			return
  		}
-@@ -365,7 +386,6 @@
+@@ -365,7 +407,6 @@
  		memoryFile:        memoryFile,
  		sysmsgThreads:     make(map[uint32]*sysmsgThread),
  	}
@@ -43,7 +76,7 @@
  	runtime.LockOSThread()
  	defer runtime.UnlockOSThread()
  
-@@ -374,6 +394,7 @@
+@@ -374,6 +415,7 @@
  	if err != nil {
  		return nil, err
  	}
@@ -51,6 +84,22 @@
  	sp.sysmsgInitRegs = ptraceThread.initRegs
  
  	if err := sp.initSyscallThread(ptraceThread, seccompNotify); err != nil {
+@@ -1072,9 +1114,15 @@
+ 	// Create a new seccomp process.
+ 	var r requestThread
+ 	r.thread = make(chan *thread)
++	r.err = make(chan error, 1)
+ 	s.requests <- r
+ 	p := <-r.thread
+ 	if p == nil {
++		select {
++		case err := <-r.err:
++			return err
++		default:
++		}
+ 		return fmt.Errorf("createSysmsgThread: failed to get clone")
+ 	}
+ 
 --- a/pkg/sentry/platform/systrap/subprocess_linux.go
 +++ b/pkg/sentry/platform/systrap/subprocess_linux.go
 @@ -276,7 +276,7 @@
@@ -98,7 +147,7 @@
  )
 --- /dev/null
 +++ b/pkg/sentry/platform/systrap/subprocess_resource_test.go
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,79 @@
 +// Copyright 2026 AgentForge contributors.
 +//
 +// Licensed under the Apache License, Version 2.0 (the "License");
@@ -147,6 +196,34 @@
 +		t.Fatal("unknown failure was incorrectly classified as a resource denial")
 +	}
 +	if len(r.done) != 0 || len(r.err) != 0 {
++		t.Fatal("unknown failure must retain the original diagnostic path")
++	}
++}
++
++func TestSysmsgResourceErrnoSurvivesRequest(t *testing.T) {
++	for _, errno := range []unix.Errno{unix.EAGAIN, unix.ENOMEM} {
++		s := &subprocess{requests: make(chan any)}
++		go func() {
++			r := (<-s.requests).(requestThread)
++			if !r.replyResourceError(fmt.Errorf("creating sysmsg thread: %w", errno)) {
++				r.err <- errors.New("resource error was not classified")
++				r.thread <- nil
++			}
++		}()
++		err := s.createSysmsgThread()
++		got, ok := err.(unix.Errno)
++		if !ok || got != errno {
++			t.Fatalf("createSysmsgThread() = (%T %v), want exact errno %v", err, err, errno)
++		}
++	}
++}
++
++func TestSysmsgDoesNotReclassifyUnknownFailure(t *testing.T) {
++	r := requestThread{thread: make(chan *thread, 1), err: make(chan error, 1)}
++	if r.replyResourceError(errors.New("unrelated internal failure")) {
++		t.Fatal("unknown failure was incorrectly classified as a resource denial")
++	}
++	if len(r.thread) != 0 || len(r.err) != 0 {
 +		t.Fatal("unknown failure must retain the original diagnostic path")
 +	}
 +}

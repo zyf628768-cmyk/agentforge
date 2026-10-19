@@ -24,7 +24,7 @@ assert len(sys.argv[2])==64 and all(c in '0123456789abcdef' for c in sys.argv[2]
 assert hashlib.sha256(raw).hexdigest()==sys.argv[2]
 manifest=json.loads(raw)
 assert manifest['commit']=='8ecc635e5e32b8eb1cb2acdc308d480f00bf7264'
-assert manifest.get('local_patch_sha256')=='459ebc1d80d2e0e687de54a4f914907bb55e4b103b1e2fd949e9afe840413b97'
+assert manifest.get('local_patch_sha256')=='3afe5e6446da001e1af53d73893a9a50bc203ebc6613947828c30561d0271aee'
 assert manifest.get('cgroup_unit_tests')=='passed'
 assert manifest.get('systrap_errno_unit_tests')=='passed'
 assert {'runsc','gvisor-bin/checkpointgofer','gvisor-bin/runsc-metric-server'} <= set(manifest['files'])

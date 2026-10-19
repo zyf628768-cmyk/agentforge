@@ -86,8 +86,9 @@ def container_arguments(command):
     command.add_argument("--evaluation", type=Path, help="Independent evaluator-owned JSON cases")
     command.add_argument(
         "--container-config",
+        "--python-runtime-config",
         type=Path,
-        help="Approved local rootless socket and immutable image digest",
+        help="Explicit Python isolation policy: rootless gVisor or sealed CPython/WASI",
     )
 
 
@@ -95,8 +96,15 @@ def container_config(args):
     if not getattr(args, "container_config", None):
         return None
     config = read_json(args.container_config)
-    if not isinstance(config, dict) or set(config) != {"image", "socket", "lease_dir"}:
-        raise ForgeError("Container policy must contain exactly image, local socket and lease_dir")
+    valid = isinstance(config, dict) and (
+        set(config) == {"image", "socket", "lease_dir"}
+        or (
+            set(config) == {"backend", "runtime_dir", "manifest_sha256"}
+            and config["backend"] == "python-wasi"
+        )
+    )
+    if not valid:
+        raise ForgeError("Invalid explicit Python runtime policy")
     return config
 
 
@@ -139,7 +147,7 @@ def parser() -> argparse.ArgumentParser:
     run = commands.add_parser("run", help="Run the WASM entrypoint on JSON input")
     run.add_argument("skill", type=Path)
     run.add_argument("--input", type=Path, help="JSON file; default stdin")
-    run.add_argument("--container-config", type=Path)
+    run.add_argument("--container-config", "--python-runtime-config", type=Path)
     evolution = commands.add_parser(
         "evolve", help="Evaluate isolated repair or evolution candidates"
     )
@@ -185,7 +193,7 @@ def parser() -> argparse.ArgumentParser:
     doctor = commands.add_parser(
         "doctor", help="Probe runtime, actual WASM execution, and local tools"
     )
-    doctor.add_argument("--container-config", type=Path)
+    doctor.add_argument("--container-config", "--python-runtime-config", type=Path)
     sandbox = commands.add_parser("sandbox", help="Supervise durable Python container leases")
     sandbox_actions = sandbox.add_subparsers(dest="action", required=True)
     for name in ("supervise", "status", "reap"):
@@ -208,7 +216,10 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
     if command == "sandbox":
         from .containers import PythonContainer
 
-        runtime = PythonContainer(**container_config(args))
+        config = container_config(args)
+        if config.get("backend"):
+            raise ForgeError("Container supervisor commands require a gVisor lease policy")
+        runtime = PythonContainer(**config)
         if args.action == "supervise":
             return runtime.supervise(once=args.once), 0
         policy = runtime.preflight()
@@ -374,11 +385,12 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
             status["ready"] = False
             status["reason"] = "Sandbox missing; untrusted execution refused"
         if args.container_config:
-            from .containers import PythonContainer
+            from .python_wasi import python_runtime
 
-            runtime = PythonContainer(**container_config(args))
-            status["python_container"] = runtime.preflight()
-            status["python_container"]["supervisor"] = runtime.lease_store().require_reaper()
+            runtime = python_runtime(container_config(args))
+            status["python_runtime"] = runtime.preflight()
+            if hasattr(runtime, "lease_store"):
+                status["python_runtime"]["supervisor"] = runtime.lease_store().require_reaper()
         return status, 0 if status["ready"] else 2
     raise ForgeError("Unknown command")
 

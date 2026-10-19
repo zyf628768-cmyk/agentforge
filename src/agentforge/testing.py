@@ -18,7 +18,7 @@ def evaluate(
     root: Path,
     report_path: Path | None = None,
     *,
-    timeout: float = 5.0,
+    timeout: float = 15.0,
     regression_cases: list[dict] | None = None,
     evaluation_path: Path | None = None,
     container_config: dict | None = None,
@@ -126,9 +126,9 @@ def evaluate(
         check_cases(cases, spec)
         try:
             if spec["kind"] == "python-json":
-                from .containers import PythonContainer
+                from .python_wasi import python_runtime
 
-                execution = PythonContainer(timeout=timeout, **(container_config or {})).execute(
+                execution = python_runtime(container_config, timeout=timeout).execute(
                     root, [c["input"] for c in cases], spec
                 )
             else:

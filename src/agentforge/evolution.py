@@ -77,7 +77,7 @@ def evolve(
     baseline = evaluate(
         root,
         destination / "baseline.json",
-        timeout=min(5.0, budget.seconds),
+        timeout=min(15.0, budget.seconds),
         evaluation_path=evaluation_path,
         container_config=container_config,
     )
@@ -154,7 +154,7 @@ def evolve(
             report = evaluate(
                 candidate,
                 candidate.parent / "evaluation.json",
-                timeout=min(5.0, remaining),
+                timeout=min(15.0, remaining),
                 regression_cases=baseline["cases"],
                 evaluation_path=evaluation_path,
                 container_config=container_config,

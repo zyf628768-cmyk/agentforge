@@ -28,7 +28,7 @@ class SandboxUnavailable(ForgeError):
 def worker_environment() -> dict[str, str]:
     """Only OS bootstrap data, derived architecture and no inherited credentials."""
     if os.name != "nt":
-        return {}
+        return {"AGENTFORGE_PARENT_PID": str(os.getpid())}
     # Python 3.11 platform.machine() reads this variable on Windows. Wasmtime uses
     # that API to select its native library. Derive the value from the Python build
     # rather than inheriting arbitrary host metadata or the host environment.
@@ -151,9 +151,9 @@ def run_skill(root: Path, value: dict, *, container_config: dict | None = None) 
     spec = read_json(root / "spec.json")
     manifest = read_json(root / "manifest.json")
     if spec["kind"] == "python-json":
-        from .containers import PythonContainer
+        from .python_wasi import python_runtime
 
-        result = PythonContainer(**(container_config or {})).execute(root, [value], spec)
+        result = python_runtime(container_config).execute(root, [value], spec)
     else:
         result = Sandbox().execute(
             (root / manifest["entrypoint"]).read_bytes(),

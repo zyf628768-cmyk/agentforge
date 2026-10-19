@@ -122,6 +122,16 @@ def linux_worker_limits(memory_bytes: int, cpu_seconds: float) -> dict:
     """Called inside the trusted worker before compiling/instantiating a guest."""
     import resource
 
+    expected_parent = os.environ.get("AGENTFORGE_PARENT_PID")
+    if expected_parent is not None:
+        if not expected_parent.isdecimal() or os.getppid() != int(expected_parent):
+            raise ResourceContainmentError("Worker parent no longer exists")
+        # Linux kernel terminates the worker even if its calling CLI is killed.
+        if ctypes.CDLL(None, use_errno=True).prctl(1, 9, 0, 0, 0) != 0:
+            raise ResourceContainmentError("Cannot install parent-death termination")
+        if os.getppid() != int(expected_parent):
+            raise ResourceContainmentError("Worker parent exited during containment")
+
     resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
     seconds = math.ceil(cpu_seconds)
     resource.setrlimit(resource.RLIMIT_CPU, (seconds, seconds))
@@ -133,6 +143,7 @@ def linux_worker_limits(memory_bytes: int, cpu_seconds: float) -> dict:
         "address_space_limit_bytes": resource.getrlimit(resource.RLIMIT_AS)[0],
         "cpu_user_seconds": seconds,
         "core_dump_bytes": 0,
+        "parent_death_sigkill": expected_parent is not None,
     }
 
 

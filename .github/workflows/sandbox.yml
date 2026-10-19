@@ -1,11 +1,5 @@
 name: real-rootless-gvisor
 on:
-  push:
-    paths:
-      - 'src/agentforge/**'
-      - 'tools/qualify_container.py'
-      - 'tools/ci/rootless-gvisor.sh'
-      - '.github/workflows/sandbox.yml'
   workflow_dispatch:
 permissions:
   contents: read

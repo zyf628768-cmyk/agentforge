@@ -1,0 +1,29 @@
+name: python-wasi-runtime
+on:
+  push:
+    paths:
+      - '.github/workflows/python-wasi.yml'
+      - 'tools/ci/build_python_wasi.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build pinned official CPython for WASI
+        run: python tools/ci/build_python_wasi.py --output python-wasi-runtime
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpython-wasi-runtime
+          path: |
+            python-wasi-runtime
+            wasi-build.log

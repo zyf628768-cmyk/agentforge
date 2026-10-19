@@ -3,6 +3,7 @@ import os
 import sqlite3
 import threading
 from contextlib import closing
+from types import SimpleNamespace
 
 import pytest
 
@@ -110,7 +111,12 @@ def test_live_supervisor_cannot_be_silently_replaced(tmp_path):
         store.heartbeat("another-supervisor")
 
 
-def test_cleanup_failure_withdraws_only_its_owner_and_can_recover(tmp_path):
+def test_cleanup_failure_withdraws_only_its_owner_and_can_recover(tmp_path, monkeypatch):
+    # This test isolates ownership semantics from CI scheduling delays. Real
+    # expiry and actual supervisor crashes are exercised separately.
+    monkeypatch.setattr(
+        "agentforge.leases.time", SimpleNamespace(time=lambda: 1000.0, monotonic=lambda: 100.0)
+    )
     store = ready_store(tmp_path)
     store.withdraw("unrelated-owner")
     store.require_reaper()

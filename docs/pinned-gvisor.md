@@ -12,6 +12,15 @@ runsc and its matching checkpoint/metric sidecars together, runs the upstream
 cgroup unit tests, and writes hashes and source provenance. No floating `latest`
 binary or mixed-version sidecars are used.
 
+The CI workflow can reuse the unit-tested build from repository run `39300341140`.
+Its manifest SHA-256 is pinned to
+`1695472a3820e3ab45a3727e634d15d803847bb9fe812d8a66a21295ecb38587`;
+the provisioner independently verifies every binary hash. The CI token has only
+repository contents/artifact read access. A manual `rebuild_runtime` request, or
+expiry of that artifact, rebuilds the same fixed source and reruns upstream unit
+tests. Reusing a built runtime does not imply that a prior guest qualification
+passed. The Python base image is fixed to the tested immutable digest as well.
+
 On a dedicated, disposable Ubuntu 24.04 x64 development VM:
 
 ```sh

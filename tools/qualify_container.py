@@ -16,7 +16,14 @@ import threading
 import time
 from pathlib import Path
 
-from container_evidence import assert_limits, assert_memory_denial, cpu_throttled, kernel_snapshot
+from container_evidence import (
+    assert_limits,
+    assert_memory_denial,
+    cgroup_snapshot,
+    cpu_throttled,
+    kernel_snapshot,
+    pid_limit_hit,
+)
 
 from agentforge.artifacts import BundleGenerator
 from agentforge.containers import PythonContainer, capped_attach
@@ -108,6 +115,11 @@ def qualify(config: dict, output: Path, *, daemon_restart: bool) -> dict:
                 stop.set()
                 thread.join(timeout=12)
                 assert not thread.is_alive(), "Kernel observer did not stop"
+                if samples:
+                    try:
+                        samples.append(cgroup_snapshot(samples[-1]["cgroup"]))
+                    except (OSError, ValueError):
+                        pass  # A short-lived cgroup can disappear after sandbox exit.
 
         result = PythonContainer(
             **config, timeout=timeout, attach=observed_attach if observe_kernel else None
@@ -187,23 +199,25 @@ print(json.dumps({{'blocked': blocked}}))
         record("actual-memory-quota", result)
         result = guest(
             "cpu-kernel-quota",
-            """import json,os,sys,time
+            """import hashlib,json,sys,threading,time
 json.load(sys.stdin)
-children=[]
-for _ in range(2):
-    pid=os.fork()
-    if pid==0:
-        until=time.monotonic()+4
-        while time.monotonic()<until: pass
-        os._exit(0)
-    children.append(pid)
-for pid in children: os.waitpid(pid,0)
-print(json.dumps({'workers':len(children)}))
+barrier=threading.Barrier(2)
+completed=[False,False]
+def work(index):
+    barrier.wait()
+    until=time.monotonic()+4
+    while time.monotonic()<until:
+        hashlib.pbkdf2_hmac('sha256',b'public-cpu-probe',b'public-salt',200000)
+    completed[index]=True
+workers=[threading.Thread(target=work,args=(index,)) for index in range(2)]
+for worker in workers: worker.start()
+for worker in workers: worker.join()
+print(json.dumps({'workers':len(workers),'completed':sum(completed)}))
 """,
             timeout=12,
             observe_kernel=True,
         )
-        assert result["results"][0]["output"] == {"workers": 2}, result
+        assert result["results"][0].get("output") == {"workers": 2, "completed": 2}, result
         assert result["kernel_samples"], "No actual kernel controls were observed"
         for sample in result["kernel_samples"]:
             assert_limits(sample)
@@ -223,6 +237,7 @@ print(json.dumps({'workers':len(children)}))
             "fork-limit",
             """import json, os, signal, sys, time
 sys.stdin.read()
+time.sleep(0.3)
 children=[]
 denied=False
 try:
@@ -245,9 +260,17 @@ finally:
 print(json.dumps({'denied':denied,'children':len(children)}))
 """,
             timeout=10,
+            observe_kernel=True,
         )
-        assert result["results"][0]["output"]["denied"], result
-        assert result["results"][0]["output"]["children"] < 32, result
+        failure = result["results"][0]
+        for sample in result["kernel_samples"]:
+            assert_limits(sample)
+        if failure.get("ok"):
+            assert failure["output"]["denied"] and failure["output"]["children"] < 32, result
+        else:
+            assert failure.get("error_type") == "GuestExecutionError" and pid_limit_hit(
+                result["kernel_samples"]
+            ), result
         record("actual-fork-quota", result)
 
         # Kill the calling CLI after the daemon confirms a running container.

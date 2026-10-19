@@ -59,8 +59,10 @@ mkdir -p "$HOME/.config/docker"
 python - <<'PY'
 import json
 from pathlib import Path
+debug = Path.cwd()/'sandbox-runtime-debug'
+debug.mkdir(mode=0o700)
 config = {'runtimes': {'runsc': {'path': '/usr/local/bin/runsc',
-          'runtimeArgs': ['--platform=systrap', '--network=none']}},
+          'runtimeArgs': ['--platform=systrap', '--network=none', '--debug', '--debug-log='+str(debug)+'/']}},
           'exec-opts': ['native.cgroupdriver=systemd'], 'storage-driver': 'vfs'}
 (Path.home()/'.config/docker/daemon.json').write_text(json.dumps(config))
 PY

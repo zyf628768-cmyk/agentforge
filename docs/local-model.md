@@ -52,6 +52,13 @@ replaced with an authored implementation. Python/WASM prompts use the selected
 target's ABI. Generated tests do not determine independent acceptance. Evaluator
 cases stay outside both model requests and Skill artifacts.
 
+`build` and `evolve` accept up to three `--example-input FILE` arguments for public
+operator-reviewed JSON inputs. These files contain inputs only, never expected
+outputs. The generator must calculate results and implement the full contract.
+Inputs are checked against the sealed schema, sensitive-value filter and a shared
+4 KiB size cap before inference. This is optional input assistance, not an
+independent answer key; never supply evaluator-owned inputs through this option.
+
 Repair feedback identifies generated tests as fallible observations. A model can
 repair generated expectations or invalid example inputs while preserving correct
 source. Semantic preconditions in the goal apply even if the JSON schema cannot
@@ -73,6 +80,13 @@ python tools/recheck_domains.py --summary new-real-model-evidence/summary.json -
 regression experiment. It mutates one AST operator in an existing genuine model
 artifact, executes it only in WASI, then requires independent acceptance of the
 model repair and rejection of a subsequent deliberately regressing candidate.
+
+`tools/qualify_planning.py --help` exercises actual free inference for both planning
+and source generation, followed by independently computed ASCII digit-count cases.
+Planning requests ask for an editable specification rather than program source.
+Larger qualification sets are partitioned into at most 32 independent cases per
+engine call. Generated/integration checks repeat across batches; reports distinguish
+those executed counts from the number of unique independent inputs.
 
 Small local models can fail generation or behavioral acceptance; those outputs are
 rejected and recorded. A few successful domains do not establish arbitrary-goal

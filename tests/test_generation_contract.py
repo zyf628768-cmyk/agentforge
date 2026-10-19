@@ -28,6 +28,7 @@ def test_local_typed_engineering_serializes_json_without_manual_code_repair(tmp_
     from agentforge.spec import general_plan
 
     value = {
+        "contract_summary": "Input is an integer array. Return its integer sum; empty input sums to zero.",
         "source": "import json,sys\njson.dump(sum(json.load(sys.stdin)),sys.stdout)\n",
         "readme": "Sum integers",
         "tests": [{"id": "empty", "input": [], "expected": 0}],

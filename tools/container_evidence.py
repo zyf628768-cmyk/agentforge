@@ -11,7 +11,11 @@ def kernel_snapshot(pid: int, *, proc=Path("/proc"), cgroups=Path("/sys/fs/cgrou
     unified = [line.removeprefix("0::") for line in records if line.startswith("0::")]
     if len(unified) != 1:
         raise ValueError("Require one unified kernel cgroup")
-    relative = PurePosixPath(unified[0])
+    return cgroup_snapshot(unified[0], cgroups=cgroups)
+
+
+def cgroup_snapshot(path, *, cgroups=Path("/sys/fs/cgroup")):
+    relative = PurePosixPath(path)
     if not relative.is_absolute() or ".." in relative.parts:
         raise ValueError("Invalid kernel cgroup path")
     root = cgroups.resolve()
@@ -20,7 +24,15 @@ def kernel_snapshot(pid: int, *, proc=Path("/proc"), cgroups=Path("/sys/fs/cgrou
         raise ValueError("Kernel cgroup escaped its mount")
     values = {
         name: (directory / name).read_text(encoding="ascii").strip()
-        for name in ("cpu.max", "memory.max", "pids.max", "cpu.stat", "memory.events")
+        for name in (
+            "cpu.max",
+            "memory.max",
+            "pids.max",
+            "cpu.stat",
+            "memory.events",
+            "pids.current",
+            "pids.events",
+        )
     }
     values["cgroup"] = str(relative)
     return values
@@ -39,6 +51,15 @@ def cpu_throttled(samples):
         return False
     values = [dict(line.split() for line in sample["cpu.stat"].splitlines()) for sample in samples]
     return int(values[-1]["nr_throttled"]) > int(values[0]["nr_throttled"])
+
+
+def pid_limit_hit(samples):
+    if len(samples) < 2:
+        return False
+    values = [
+        dict(line.split() for line in sample["pids.events"].splitlines()) for sample in samples
+    ]
+    return int(values[-1]["max"]) > int(values[0]["max"])
 
 
 def assert_memory_denial(failure):

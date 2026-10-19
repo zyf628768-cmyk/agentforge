@@ -58,6 +58,7 @@ jobs:
             sandbox-evidence
             sandbox-provision.log
             sandbox-policy.json
+            sandbox-runtime-debug
             gvisor-build.log
             ${{ runner.temp }}/agentforge-gvisor-runtime/runtime-provenance.json
       - uses: actions/upload-artifact@v4

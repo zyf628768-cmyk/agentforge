@@ -48,6 +48,8 @@ def test_kernel_probe_refuses_unbounded_or_unenforced_controls(tmp_path):
         "cpu.max": "100000 100000",
         "memory.max": "268435456",
         "pids.max": "32",
+        "pids.current": "20",
+        "pids.events": "max 0\n",
         "cpu.stat": "nr_throttled 0\n",
         "memory.events": "oom_kill 0\n",
     }.items():
@@ -61,3 +63,10 @@ def test_kernel_probe_refuses_unbounded_or_unenforced_controls(tmp_path):
     (proc / "cgroup").write_text("0::/../escape\n")
     with pytest.raises(ValueError):
         module.kernel_snapshot(42, proc=proc.parent, cgroups=cgroups)
+
+
+def test_pid_quota_requires_an_actual_kernel_event_increase():
+    module = evidence_module()
+    assert not module.pid_limit_hit([])
+    assert not module.pid_limit_hit([{"pids.events": "max 0"}, {"pids.events": "max 0"}])
+    assert module.pid_limit_hit([{"pids.events": "max 0"}, {"pids.events": "max 1"}])

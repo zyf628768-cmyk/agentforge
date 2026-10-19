@@ -12,12 +12,15 @@ def evidence_module():
     return module
 
 
-@pytest.mark.parametrize("failure", [
-    {"error_type": "SandboxUnavailable"},
-    {"error_type": "GuestExecutionError", "exit_code": 1, "stderr": "SyntaxError"},
-    {"error_type": "GuestExecutionError", "exit_code": 137},
-    {"error_type": "GuestExecutionError", "exit_code": 1, "stderr": "MemoryErrorImitation"},
-])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        {"error_type": "SandboxUnavailable"},
+        {"error_type": "GuestExecutionError", "exit_code": 1, "stderr": "SyntaxError"},
+        {"error_type": "GuestExecutionError", "exit_code": 137},
+        {"error_type": "GuestExecutionError", "exit_code": 1, "stderr": "MemoryErrorImitation"},
+    ],
+)
 def test_unrelated_failures_are_not_reported_as_memory_qualification(failure):
     with pytest.raises(AssertionError):
         evidence_module().assert_memory_denial(failure)
@@ -25,10 +28,12 @@ def test_unrelated_failures_are_not_reported_as_memory_qualification(failure):
 
 def test_memory_qualification_requires_specific_failure_evidence():
     module = evidence_module()
-    module.assert_memory_denial({"error_type": "GuestExecutionError", "exit_code": 1,
-                                 "stderr": "Traceback:\nMemoryError\n"})
-    module.assert_memory_denial({"error_type": "GuestExecutionError", "exit_code": 137,
-                                 "termination": {"oom_killed": True}})
+    module.assert_memory_denial(
+        {"error_type": "GuestExecutionError", "exit_code": 1, "stderr": "Traceback:\nMemoryError\n"}
+    )
+    module.assert_memory_denial(
+        {"error_type": "GuestExecutionError", "exit_code": 137, "termination": {"oom_killed": True}}
+    )
 
 
 def test_kernel_probe_refuses_unbounded_or_unenforced_controls(tmp_path):
@@ -39,9 +44,13 @@ def test_kernel_probe_refuses_unbounded_or_unenforced_controls(tmp_path):
     cgroups = tmp_path / "cgroups"
     leaf = cgroups / "scope"
     leaf.mkdir(parents=True)
-    for name, value in {"cpu.max": "100000 100000", "memory.max": "268435456",
-                        "pids.max": "32", "cpu.stat": "nr_throttled 0\n",
-                        "memory.events": "oom_kill 0\n"}.items():
+    for name, value in {
+        "cpu.max": "100000 100000",
+        "memory.max": "268435456",
+        "pids.max": "32",
+        "cpu.stat": "nr_throttled 0\n",
+        "memory.events": "oom_kill 0\n",
+    }.items():
         (leaf / name).write_text(value)
     observed = module.kernel_snapshot(42, proc=proc.parent, cgroups=cgroups)
     module.assert_limits(observed)

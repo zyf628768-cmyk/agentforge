@@ -47,7 +47,8 @@ def main():
         "domains": [],
         "scope": {
             "domain_count": len(selected),
-            "independent_cases": sum(len(d["cases"]) for d in selected),
+            "positive_independent_cases": sum(len(d["cases"]) for d in selected),
+            "negative_independent_cases": 2 * len(selected),
             "repair_iterations": args.repair_iterations,
             "wall_seconds": args.seconds,
             "public_reproducible_cases": True,
@@ -81,6 +82,18 @@ def main():
                 "cases": [
                     {"id": f"independent-{i}", "input": value, "expected": expected}
                     for i, (value, expected) in enumerate(domain["cases"])
+                ]
+                + [
+                    {
+                        "id": "independent-invalid-null",
+                        "input": None,
+                        "error_type": "ValidationError",
+                    },
+                    {
+                        "id": "independent-invalid-root",
+                        "input": {} if domain["inputs"]["type"] == "array" else [],
+                        "error_type": "ValidationError",
+                    },
                 ],
             },
         )

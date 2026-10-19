@@ -4,7 +4,7 @@
 
 [公开 Alpha 下载](https://github.com/zyf628768-cmyk/agentforge/releases) ·
 [跨平台 CI](https://github.com/zyf628768-cmyk/agentforge/actions) ·
-[生产验收状态](docs/production-readiness.md)。当前开发版本 `0.2.0a3`。
+[生产验收状态](docs/production-readiness.md)。当前开发版本 `0.2.0a4`。
 
 本轮增加通用工程产物包、真实 Responses 协议后端、通用 JSON/WASM 执行、
 更严格的进程资源限额、封存的 CPython/WASI，以及 Python 的 rootless gVisor 容器适配器。
@@ -13,8 +13,10 @@
 项目已公开发布 Alpha，Windows/Linux × Python 3.11–3.15 的十项 CI 已通过，
 对应的十项全新环境离线安装验收也已通过。
 免费离线开发不调用付费模型、不检查真实密钥。离线协议夹具明确标记为人工测试数据；
-免费本地 3B/7B 模型已做真实生成与独立测试，保留成功、失败和拒绝记录；
-通用模型质量资格与独立安全审查仍未完成。[真实模型结果](docs/actual-local-results.md)。
+免费本地 14B 模型已完成八类任务的实际生成验收：七类无示例辅助，CSV 使用只含输入、
+不含答案的公开示例辅助；八个接受产物通过 410 个独立新种子用例。保留初次失败、
+真实模型修复和回归拒绝记录。[真实模型结果](docs/actual-local-results.md)。
+已记录你确认的“人工审查通过”；未提供审查人、报告和覆盖提交，未推定后续修改也被覆盖。
 
 新增[免费本地模型后端](docs/local-model.md)：显式连接本机 llama.cpp，实际推理，
 与人工协议夹具分开记录。[持久化共享预算](docs/budgets.md)跨进程与重启保留金额、
@@ -68,8 +70,8 @@ python tools/verify_v02.py --output offline-evidence
 Responses HTTP 后端已实现结构化输出、拒答/截断处理、有限响应读取、禁止重定向、
 Token/金额预留及审计记录。真实调用要求显式模型、人工核对的价格和正数预算，
 以及 `--approve-model-request`、显式凭据变量和新的审计路径。
-默认不发现或读取密钥。未知结果保留预算，不盲目重试。实际模型质量、延迟和计费
-尚未测试，需你确认具体付费调用后执行。本地免费模型有单独的真实验收记录。
+默认不发现或读取密钥。未知结果保留预算，不盲目重试。付费供应商的实际质量、延迟和
+计费尚未测试，需你确认具体付费调用后执行。本地免费模型有单独的真实验收记录。
 
 Windows WASM 工作进程增加 Job Object：默认 256 MiB 进程组提交内存、有限 CPU
 时间、两个进程（虚拟环境启动器和解释器）、关闭即终止及墙钟看门狗。
@@ -81,9 +83,10 @@ Python 执行要求本地 rootless Docker、cgroup v2、seccomp、gVisor/runsc �
 容器配置核验。另要求私有持久租约目录和独立监督进程；监督心跳失效时拒绝新执行，
 中断清理和守护进程恢复后由回收器继续处理。配置及运行命令见
 [隔离环境运维](docs/sandbox-operations.md)。Windows 本机不以普通容器或子进程回退。
-真实 gVisor 验收发现上游 rootless/systemd cgroup 启动缺陷，目前仍安全拒绝执行；
-没有通过关闭资源控制或改用 rootful Docker 绕过问题。其攻击与崩溃验收仍待上游修复。
+严格原生验收使用固定上游 rootless 修复、固定源码和版本化 errno 补丁，构建匹配的
+sidecar 并运行单元测试；上游 PR 仍未合并。失败尝试和后续攻击、资源、崩溃恢复的
+实际结果分别保留，详见 [固定运行时](docs/pinned-gvisor.md) 和发布验收报告。
 CPython/WASI 是独立、显式选择的纯计算执行后端，不自动回退。
 
-详见 [生产缺口清单](docs/production-readiness.md)、[安全模型](docs/security.md)、
+详见 [验收范围与限制](docs/production-readiness.md)、[安全模型](docs/security.md)、
 [模型后端](docs/model-backend.md) 和 [CLI](docs/cli.md)。

@@ -34,9 +34,9 @@ Re-run after source changes and inspect new findings; raw scanner exit 1 is not
 reported as a clean scan. Existing hostile guest probes complement scanner review.
 They do not establish resistance to every kernel/JIT/native dependency defect.
 
-The gVisor rootless/systemd fix remains an open, conflicting upstream PR at the
-time of investigation: `google/gvisor#13853`, head
-`8ecc635e5e32b8eb1cb2acdc308d480f00bf7264`. Its substantial UID-namespace, D-Bus and
-cgroup changes cannot be treated as a reviewed stable runtime. AgentForge retains
-the failed-start evidence and strict refusal; it does not disable cgroups, use
-rootful execution, or silently ship a patched native sandbox as production-ready.
+The gVisor rootless/systemd fix is still an open upstream PR, not a merged stable
+release: `google/gvisor#13853`, head `8ecc635e5e32b8eb1cb2acdc308d480f00bf7264`.
+The exact source plus a versioned errno-preservation patch is compiled and unit
+tested, then exercised under the strict native profile. Earlier startup and
+qualification failures remain in the evidence. See [runtime provenance](pinned-gvisor.md)
+and release results; qualification never disables cgroups or uses rootful fallback.

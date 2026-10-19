@@ -84,6 +84,12 @@ model repair and rejection of a subsequent deliberately regressing candidate.
 `tools/qualify_planning.py --help` exercises actual free inference for both planning
 and source generation, followed by independently computed ASCII digit-count cases.
 Planning requests ask for an editable specification rather than program source.
+Local plans use typed schema objects. Unspecified scaffold root types are omitted
+from model context; `plan --contract FILE` seals the operator's explicit schemas.
+`--review-plan` opts into one additional free-local self-review request, with both
+attempts retained. Planning plus self-review plus build needs at least three requests
+and sufficient token reservations (the recorded trial allows 100000 tokens).
+Review is not an independent test and can still miss a semantic contradiction.
 Larger qualification sets are partitioned into at most 32 independent cases per
 engine call. Generated/integration checks repeat across batches; reports distinguish
 those executed counts from the number of unique independent inputs.

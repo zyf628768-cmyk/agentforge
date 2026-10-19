@@ -173,6 +173,20 @@ def test_remote_docker_and_mutable_images_are_not_accepted():
             ).preflight()
 
 
+def test_daemon_socket_disappearance_is_a_controlled_refusal(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(os, "getuid", lambda: 1000, raising=False)
+
+    def absent_socket(path):
+        raise FileNotFoundError("Rootless daemon stopped")
+
+    monkeypatch.setattr(Path, "lstat", absent_socket)
+    container = PythonContainer(image=IMAGE, socket=SOCKET)
+    monkeypatch.setattr(container, "_call", lambda *args: pytest.fail("No daemon or guest call"))
+    with pytest.raises(SandboxUnavailable, match="socket is unavailable"):
+        container.preflight()
+
+
 def test_container_protocol_pins_controls_and_cleans_after_execution(tmp_path):
     root = BundleGenerator.from_file(FIXTURES / "csv-summary.bundle.json").generate(
         read_json(FIXTURES / "csv-summary.plan.json"), tmp_path / "csv-summary"

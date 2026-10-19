@@ -151,8 +151,13 @@ class PythonContainer:
             if not os.sys.platform.startswith("linux") or os.getuid() == 0:
                 raise SandboxUnavailable("Python containers require a nonroot Linux operator")
             selected = Path(self.socket.removeprefix("unix://"))
-            info_socket = selected.lstat()
-            info_directory = selected.parent.stat()
+            try:
+                info_socket = selected.lstat()
+                info_directory = selected.parent.stat()
+            except OSError as exc:
+                raise SandboxUnavailable(
+                    "Selected rootless socket is unavailable; no fallback execution"
+                ) from exc
             if (
                 selected.is_symlink()
                 or not stat.S_ISSOCK(info_socket.st_mode)

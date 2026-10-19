@@ -1,6 +1,6 @@
 # AgentForge
 
-**Local Skill engineering CLI.** Python 3.11+, MIT. Development version: `0.2.0a3`.
+**Local Skill engineering CLI.** Python 3.11+, MIT. Development version: `0.2.0a4`.
 [Public Alpha downloads](https://github.com/zyf628768-cmyk/agentforge/releases) ·
 [CI evidence](https://github.com/zyf628768-cmyk/agentforge/actions).
 [中文](README.zh-CN.md) · [readiness](docs/production-readiness.md)
@@ -19,9 +19,13 @@ No paid model requests or real credential inspection are part of offline develop
 An explicitly approved [free local model backend](docs/local-model.md) performs
 actual llama.cpp inference. [Shared durable budgets](docs/budgets.md) preserve
 request/token/money limits across processes and restarts; unknown charges remain held.
-Authored protocol fixtures are explicitly labelled. Actual free 3B/7B local
-generation has independent success/failure records; [measured results](docs/actual-local-results.md)
-do not establish arbitrary-goal model quality or independent security review.
+Authored protocol fixtures remain labelled. Actual free 14B local inference now
+has accepted artifacts across eight domains: seven unassisted and CSV with public
+input-only assistance. All accepted artifacts passed 410 distinct fresh independent
+cases. Failures, actual model repair and regression rejection are retained.
+See [measured results](docs/actual-local-results.md) and release RESULTS files.
+The user reported human review passed; [attestation provenance](docs/human-review-attestation.json)
+does not invent a reviewer, report or covered revision.
 
 ## Install
 
@@ -55,9 +59,10 @@ generated and executes in an explicitly selected CPython/WASI runtime. Real test
 cover CSV repair, rejected regressions and denied guest capabilities. See
 [Python/WASI setup](docs/python-wasi.md). No generated Python is run on the host. See
 [sandbox operations](docs/sandbox-operations.md) for crash recovery and real
-gVisor qualification commands and evidence requirements. Actual rootless gVisor
-qualification found an upstream systemd/cgroup startup defect and remains blocked;
-resource controls are never disabled to bypass it.
+gVisor qualification commands and evidence requirements. The strict native profile
+uses an exact upstream rootless fix and a recorded errno patch with matching
+sidecars and unit tests. Its upstream PR remains open; see
+[pinned runtime](docs/pinned-gvisor.md) and release containment results.
 
 `--bundle FILE` accepts the same engineering format from another generator without
 using a model. A bundle contains real source (`scripts/main.wat` or `main.py`),
@@ -111,4 +116,4 @@ python tools/verify_v02.py --output offline-evidence
 Every CLI command provides `--help`. Original v0.1.0 text-cleaner workflows remain
 supported. The original ZIP/tag are preserved. See [CLI](docs/cli.md),
 [security](docs/security.md), [architecture](docs/architecture.md) and
-[production blockers](docs/production-readiness.md). No web service is shipped.
+[qualification scope](docs/production-readiness.md). No web service is shipped.

@@ -2,6 +2,14 @@
 
 ## 0.2.0a4 — scoped model and native isolation qualification
 
+- Accept eight actual 14B-generated artifacts (CSV input-assisted), then re-evaluate
+  all eight with 410 distinct independent cases and 458 total checks; retain failures.
+- Exercise actual-model defect repair and rejection of a regressive candidate.
+- Use typed local planning, explicit contract seals and optional bounded self-review;
+  omit uninferred scaffold schemas from model context and reject unknown schema keywords.
+- Support bounded public input-only examples; never send independent answers to models.
+- Preserve systrap EAGAIN/ENOMEM through a versioned native patch with actual Go tests;
+  fix concurrent lease cleanup, retry heartbeats and isolated crash-caller bootstrap.
 - Distinguish implementation faults from generator-authored expectation faults;
   retain model diagnoses and avoid repeatedly anchoring repair on a bad literal.
 - Expand separate evaluation to eight compute domains with 128 positive and 16

@@ -1,38 +1,53 @@
 # Actual free local model results
 
-Official Qwen2.5-Coder 3B and 7B Instruct Q4_K_M weights were hash-verified and
-executed using official llama.cpp b11669 on this Windows CPU host. Model weights
-and native inference software are separate operator assets, not covered by this
-project's MIT license. No paid API, provider key discovery or production access
-was used. Each server binds literal loopback, disables tools/UI and is stopped
-after its bounded phase.
+Official Qwen2.5-Coder 14B Instruct Q4_K_M was executed using official
+llama.cpp b11669 on Windows CPU. Weight SHA-256:
+`c1e659736d89ac1065fb495330fb824d94001974a4bfa78e7270e43476a8d940`.
+The release includes exact upstream revisions, commands, token/request budgets,
+receipts, source hashes and original failed trials. Weights are separately licensed
+operator assets; they are not bundled or relicensed as MIT.
 
-The evaluator has 16 independent cases per domain. Their inputs, expected outputs
-and authored reference implementations are not supplied to the model. Genuine
-model source runs inside the separately approved CPython/WASI backend. Typed JSON
-serialization by the builder does not substitute authored source for model output.
+| Domain | Observed accepted path |
+|---|---|
+| Invoice totals | Actual model generation |
+| Closed interval union | Actual generation, failure detected, actual model repair |
+| Unicode casefold histogram | Actual model generation |
+| Stable unique values | Actual model generation |
+| Matrix transpose | Actual model generation |
+| Reduced fractions | Actual model generation |
+| Signed numeric CSV row sums | Input-assisted actual generation, after rejected unassisted trials |
+| Balanced brackets | Actual model generation |
 
-| Trial | Invoice totals | Interval union | Unicode word histogram |
-|---|---|---|---|
-| 3B retained artifacts, before controlled repair | 16/16 independent; rejected for incorrect generated expectations | 13/16 independent; rejected | 0/16 independent; rejected |
-| 7B initial generation, one request per domain | 16/16 independent, 17/19 total; rejected for incorrect generated expectations | 16/16 independent, 19/19 total; passed | 0/16 independent; rejected for treating a string root as a wrapper object |
+The original eight-domain batch failed: CSV code passed independent cases but its
+own examples violated the numeric-cell goal. Two model repairs were rejected.
+Follow-up failures remain in the evidence. The successful CSV trial supplied only
+two public input values, without expected answers; the model generated both code
+and expectations. No source or expected output was manually replaced.
+This is seven unassisted domains plus one input-assisted domain, not an eight-domain
+unassisted success rate or a controlled statistical model ranking.
 
-These are measured artifact outcomes, not statistical model rankings. Trials used
-evolving engineering prompts; they do not constitute a controlled 3B/7B comparison.
-The initial raw failures remain part of the evidence. Follow-up controlled repair
-and root-contract prompt trials are reported separately with their own receipts,
-budgets and actual outcomes in the release evidence. A failed initial result is
-not overwritten when a later trial runs.
+All eight accepted artifacts then passed a fresh-seed evaluation: **410 distinct
+independent cases** and **458 executed checks**, including repeated generated and
+integration checks. Cases are deduplicated within that evaluation; fixed edges can
+overlap earlier suites. Inputs and answers remain outside model context. Evaluation
+is split into batches under the unchanged 32-case engine limit.
 
-Actual testing also found two engine integration issues: model-copied integration
-case names could collide with engine IDs, and local typed prompts needed explicit
-root-value semantics. Case suites now have separate namespaces with original labels
-preserved; the prompt explains direct string/array/object contracts. No holdout is
-added to repair context. Incorrect generated tests remain failures rather than
-being silently changed to match the program.
+A separate actual-model repair demonstration deliberately changes one multiplication
+to addition in accepted invoice source. A real bounded model repair passes; a later
+regressive candidate is rejected and the active SQLite/Git artifact hash remains
+`a93261cfb2217f1d36fa32c4940232af0e3787edf5b5db6daf3f2571a659d957`.
 
-Model generation and model repair can fail within their finite budgets. Independent
-gates refuse such candidates and preserve existing stable versions. This evidence
-establishes an actual free inference/engineering/sandbox path and its observed
-limits; it does not establish arbitrary-goal production quality, paid-provider
-acceptance or an independent human security verdict.
+Earlier official 3B/7B trials also remain available. They exposed incorrect generated
+expectations and root-wrapper mistakes. Later success does not overwrite those
+failures. Planning trials likewise retain failures and distinguish supplied
+contracts, model self-review and independent behavioral acceptance.
+
+Every inference server binds literal loopback, disables tools/UI and runs with a
+minimal environment, finite Job Object resources and an explicit deadline. It is
+stopped after the phase. Model source executes only inside CPython/WASI. No paid
+requests, real credential discovery or production access were used.
+
+These results qualify the recorded compute-only tasks and artifacts. They do not
+establish arbitrary-goal reliability, paid-provider quality/billing or protection
+against every native-engine vulnerability. See the release RESULTS files for
+commands, precise counts, failed trials, CI runs and runtime provenance.

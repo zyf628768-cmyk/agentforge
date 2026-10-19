@@ -2,14 +2,14 @@
 
 This repository is a local CLI. Review this code and its real execution evidence;
 do not infer hosted service or production qualification from passing unit tests.
-No external reviewer verdict is claimed by this document.
+The user reported human review passed; the exact statement and missing provenance fields are recorded in human-review-attestation.json. This document does not extend that statement to subsequent changes.
 
 ## Concrete boundaries to review
 
 | Boundary | Implementation and evidence |
 |---|---|
 | Guest code / host | `_worker.py`, `_wasi_worker.py`, `python_wasi.py`, `process_limits.py`; no-import WASM and read-only WASI hostile probes on actual Windows/Linux runners |
-| Native Python container | `containers.py`, `leases.py`; pre-create durable names, attestation, independent lease recovery and refusal without supervisor; actual stable gVisor startup is blocked upstream |
+| Native Python container | `containers.py`, `leases.py`; pre-create durable names, attestation, independent lease recovery and refusal without supervisor; pinned patched gVisor runtime and actual hostile/crash qualification; upstream PR remains open |
 | Local model / network | `local_model.py`; literal loopback only, no proxies/redirects/credential discovery, no model tools; actual official Qwen/llama.cpp provenance and inference records |
 | Paid model / operator authorization | `cli.py`, `providers.py`; explicit approval, model/prices and named credential, persistent account validation before the selected read; paid path mocked only |
 | Cost / crashes / concurrent callers | `billing.py`; integer units, transaction-before-transport, unknown holds, immutable scope caps and explicit one-time reconciliation; real process contention/crash tests |

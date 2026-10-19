@@ -29,6 +29,13 @@ Model options for plan/build/evolve:
 - `--response FILE`: offline `{responses:[Responses-envelope,...]}` fixture.
 - `--model-config FILE`: explicit model/rates/budgets; no automatic live model.
 - `--model-receipts FILE`: mandatory new audit destination outside Skill artifacts.
+- `plan --contract FILE`: seal explicit input/output schemas before model planning.
+  Unspecified root schemas are inferred by the model; the editable plan requires review.
+- `plan --review-plan`: opt into a second bounded free-local planning request.
+  Both attempts are recorded; this is model self-review, not independent acceptance.
+- `build/evolve --example-input FILE` (repeat at most three times): operator-reviewed
+  public inputs without answers. Finite JSON, schema, size and sensitive-value checks
+  run before inference. Requires an explicit model generator; examples never replace holdouts.
 - `--approve-model-request` plus `--credential-env NAME`: both needed for a live
   request after user approval. Offline fixtures reject these credential options.
 

@@ -187,6 +187,37 @@ def test_no_credential_read_before_live_approval(tmp_path, monkeypatch):
         model_backend(args)
 
 
+def test_persistent_account_is_checked_before_selected_key_read(tmp_path, monkeypatch):
+    import os
+
+    write_json(
+        tmp_path / "config.json",
+        {
+            "model": "explicit",
+            "max_cost_usd": 1,
+            "input_usd_per_million": 1,
+            "output_usd_per_million": 1,
+        },
+    )
+
+    class NoEnvironment(dict):
+        def get(self, *args, **kwargs):
+            raise AssertionError("No key read before the durable account gate")
+
+    monkeypatch.setattr(os, "environ", NoEnvironment())
+    args = argparse.Namespace(
+        model_receipts=tmp_path / "receipts.json",
+        model_config=tmp_path / "config.json",
+        response=None,
+        approve_model_request=True,
+        credential_env="OPENAI_API_KEY",
+        home=tmp_path,
+        budget_account=None,
+    )
+    with pytest.raises(ForgeError, match="budget-account"):
+        model_backend(args)
+
+
 def test_model_planning_seals_identity():
     value = read_json(FIXTURES / "integer-stats.planning-response.json")["responses"][0]
     backend = ResponsesBackend(ModelConfig(model="offline"), RecordedTransport([value]))

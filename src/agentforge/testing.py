@@ -110,6 +110,16 @@ def evaluate(
             raise ForgeError("Malformed test case")
         identifiers = set()
         for case in cases:
+            if generic:
+                original = case["id"]
+                if not isinstance(original, str) or not 1 <= len(original) <= 160:
+                    raise ForgeError("Case IDs must be unique bounded strings")
+                case["original_id"] = original
+                # Generator/evaluator/engine identifiers occupy distinct namespaces.
+                # Preserve original labels without letting a copied integration ID
+                # prevent otherwise valid candidate acceptance.
+                digest = hashlib.sha256(original.encode()).hexdigest()[:16]
+                case["id"] = f"{case['suite']}:{original[:100]}:{digest}"
             if (
                 not isinstance(case["id"], str)
                 or not 1 <= len(case["id"]) <= 160
@@ -158,6 +168,7 @@ def evaluate(
                     {
                         "id": case["id"],
                         "suite": case["suite"],
+                        **({"original_id": case["original_id"]} if generic else {}),
                         "passed": bool(passed),
                         "input": case["input"],
                         "expected": case.get("expected", case.get("error_type")),
@@ -170,7 +181,7 @@ def evaluate(
                 report["status"] = "unverified"
     total = len(report["cases"])
     passed = sum(c["passed"] for c in report["cases"])
-    valid = [c for c in report["cases"] if not c["id"].startswith("invalid-")]
+    valid = [c for c in report["cases"] if not c["expects_error"]]
     report["metrics"] = {
         "tests_total": total,
         "tests_passed": passed,

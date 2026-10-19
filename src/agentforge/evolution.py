@@ -135,6 +135,16 @@ def evolve(
                         for c in feedback_report["cases"]
                         if not c["passed"] and c["suite"] in {"unit", "integration"}
                     ]
+                    if hasattr(generator, "previous_source"):
+                        previous_root = Path(feedback_report["skill"])
+                        source = previous_root / (
+                            "scripts/main.py"
+                            if spec["kind"] == "python-json"
+                            else "scripts/main.wat"
+                        )
+                        generator.previous_source = (
+                            source.read_text(encoding="utf-8") if source.is_file() else None
+                        )
                 try:
                     generator.generate(spec, candidate)
                 except ForgeError as exc:

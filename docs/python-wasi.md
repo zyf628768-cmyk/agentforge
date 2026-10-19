@@ -10,6 +10,12 @@ statistics. It does not promise native wheels, GUI, subprocesses, writable files
 network services or all CPython platform modules. Arbitrary-goal model quality is
 not established by these deterministic examples.
 
+Reviewed pure-Python helper modules can be bundled under `scripts/`. A trusted
+bootstrap adds only that read-only guest directory to the guest import path.
+This never changes the host interpreter's module path or grants host filesystem
+access. Native third-party wheels and automatic dependency installation remain
+outside this backend's capabilities.
+
 ## Provision once, run offline
 
 On a dedicated Linux build VM, run `python tools/ci/build_python_wasi.py --output

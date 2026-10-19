@@ -73,7 +73,16 @@ def execute(job):
                 stdin_path = Path(tmp) / "stdin.json"
                 stdin_path.write_text(raw, encoding="utf-8")
                 wasi = wasmtime.WasiConfig()
-                wasi.argv = ["/runtime/python.wasm", "-I", "-B", "/skill/scripts/main.py"]
+                wasi.argv = [
+                    "/runtime/python.wasm",
+                    "-I",
+                    "-B",
+                    "-c",
+                    "import sys;sys.path.insert(0,'/skill/scripts');"
+                    "p='/skill/scripts/main.py';sys.argv=[p];"
+                    "f=open(p,encoding='utf-8');s=f.read();f.close();"
+                    "exec(compile(s,p,'exec'),{'__name__':'__main__','__file__':p})",
+                ]
                 wasi.env = [("LANG", "C.UTF-8")]
                 wasi.stdin_file = str(stdin_path)
                 wasi.stdout_custom = sink(0)

@@ -99,6 +99,22 @@ def main():
         )
         assert report["status"] == "passed", report["execution"]
         evidence["checks"]["real_csv_skill"] = report["metrics"]
+        helper_bundle = json.loads(json.dumps(bundle))
+        helper_bundle["files"][0]["path"] = "scripts/summary_impl.py"
+        helper_bundle["files"].append(
+            {"path": "scripts/main.py", "content": "import summary_impl\n"}
+        )
+        helper_root = BundleGenerator(helper_bundle).generate(
+            spec, args.output / "helper/csv-summary"
+        )
+        helper_report = evaluate(
+            helper_root,
+            args.output / "helper.json",
+            evaluation_path=independent,
+            container_config=config,
+        )
+        assert helper_report["status"] == "passed", helper_report
+        evidence["checks"]["readonly_multi_module_python"] = True
         baseline_hash = tree_hash(root)
         registry = Registry(args.output / "registry")
         registry.register(root, report)

@@ -10,6 +10,10 @@
 - Build native offline wheelhouses and verify fresh offline installations in CI.
 - Extend regular CI to Python 3.14/3.15 and validate workflow command structure.
 - Record dependency/static scanner evidence and document the human audit boundary.
+- Separate generated, independent and engine case identifiers; preserve labels while
+  preventing model-copied integration IDs from breaking candidate evaluation.
+- Include bounded previous source in model repair context without exposing holdouts.
+- Support read-only bundled Python helpers through an isolated guest import path.
 
 ## 0.2.0a2 — sandbox recovery and qualification
 

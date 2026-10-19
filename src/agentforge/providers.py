@@ -179,6 +179,9 @@ class ResponsesBackend:
                 "short actual description. tests contains one or two typed cases; "
                 "example_input and example_output are JSON values, never filenames. "
                 "No external dependencies or tools, no markdown fences."
+                " Re-check arithmetic in your generated tests. Generated expectations are fallible; "
+                "the goal and input/output contract are authoritative. Correct inconsistent tests "
+                "as well as code; do not hardcode the reported example results."
             )
         if target == "python-json":
             instructions += (
@@ -356,6 +359,7 @@ class ModelGenerator:
         self.backend = backend
         self.feedback = []
         self.last_bundle = None
+        self.previous_source = None
 
     def generate(self, spec: dict, destination: Path, variant: str = "correct") -> Path:
         validate(spec)
@@ -405,6 +409,10 @@ class ModelGenerator:
             "spec": spec,
             "generated_test_failures": self.feedback,
         }
+        if self.previous_source is not None:
+            if len(self.previous_source.encode()) > 40000:
+                raise ForgeError("Previous source exceeds bounded model feedback context")
+            data["previous_source"] = self.previous_source
         if typed:
             data["typed_format"] = "typed-engineering"
         else:

@@ -35,5 +35,5 @@ Before production:
    limits, concurrent service operations, backups, telemetry and incident handling
    if a web/API service is desired. The product shipped here is a local CLI.
 
-No public release/push/deployment or production environment access is authorized
-by this milestone. The v0.1.0 tag/archive remain unchanged.
+The public Alpha release does not establish production qualification or authorize
+paid model calls or production deployment. The v0.1.0 tag/archive remain unchanged.

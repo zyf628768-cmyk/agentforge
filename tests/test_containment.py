@@ -305,6 +305,44 @@ def test_missing_supervisor_refuses_before_container_creation(tmp_path):
     assert not any("create" in command for command in container.commands)
 
 
+@pytest.mark.parametrize("operation", ["inspect", "rm"])
+@pytest.mark.parametrize("disappeared", [False, True])
+def test_concurrent_cleanup_requires_confirmed_absence(tmp_path, operation, disappeared):
+    name = None
+    inventories = 0
+
+    def daemon(command):
+        nonlocal inventories
+        if "ps" in command:
+            inventories += 1
+            return "" if disappeared and inventories > 1 else "a" * 64
+        if "inspect" in command and operation != "inspect":
+            return json.dumps(
+                [
+                    {
+                        "Name": "/" + name,
+                        "Config": {
+                            "Labels": {
+                                "org.agentforge.managed": "1",
+                                "org.agentforge.lease": name,
+                                "org.agentforge.policy": container.lease_store().policy,
+                            }
+                        },
+                    }
+                ]
+            )
+        raise SandboxUnavailable("Concurrent removal or a daemon error")
+
+    container = prepared_container(tmp_path, control=daemon)
+    name = container.lease_store().reserve(5)
+    if disappeared:
+        assert container.remove_leased(name)
+    else:
+        with pytest.raises(SandboxUnavailable):
+            container.remove_leased(name)
+    assert inventories == 2
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Actual Windows Job resource enforcement probe")
 def test_actual_windows_process_memory_quota(tmp_path):
     script = tmp_path / "trusted_memory_probe.py"

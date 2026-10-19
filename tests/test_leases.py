@@ -1,6 +1,7 @@
 import math
 import os
 import sqlite3
+import threading
 from contextlib import closing
 
 import pytest
@@ -107,6 +108,30 @@ def test_live_supervisor_cannot_be_silently_replaced(tmp_path):
     store = ready_store(tmp_path)
     with pytest.raises(ForgeError, match="already owns"):
         store.heartbeat("another-supervisor")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Actual rootless staging cleanup uses POSIX unlink semantics")
+def test_caller_and_supervisor_can_remove_the_same_staging_tree(tmp_path, monkeypatch):
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+
+    store = ready_store(tmp_path)
+    name = store.reserve(5)
+    staged = store.staging(name)
+    staged.mkdir()
+    for i in range(20):
+        (staged / str(i)).write_text("untrusted source")
+    original = shutil.rmtree
+    barrier = threading.Barrier(2)
+
+    def concurrent(path, *args, **kwargs):
+        barrier.wait(timeout=5)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", concurrent)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(store.remove_staging, [name, name]))
+    assert not staged.exists()
 
 
 @pytest.mark.parametrize("seconds", [0, -1, 31, math.inf, math.nan])

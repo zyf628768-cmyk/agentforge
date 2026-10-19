@@ -186,7 +186,12 @@ class LeaseStore:
         if hasattr(target, "is_junction") and target.is_junction():
             raise ForgeError("Unsafe staging cleanup junction")
         if target.exists():
-            shutil.rmtree(target)
+
+            def concurrent_missing(function, path, exc_info):
+                if not isinstance(exc_info[1], FileNotFoundError):
+                    raise exc_info[1]
+
+            shutil.rmtree(target, onerror=concurrent_missing)
 
 
 def reap(store: LeaseStore, control, inventory=()) -> dict:

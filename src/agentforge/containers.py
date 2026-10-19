@@ -351,24 +351,39 @@ class PythonContainer:
         store = self.lease_store()
         if not store.lookup(name):
             raise SandboxUnavailable("Container has no matching local lease")
-        identifiers = (
-            self._call(
-                "ps",
-                "--all",
-                "--no-trunc",
-                "--filter",
-                "name=^/" + name + "$",
-                "--format",
-                "{{.ID}}",
+
+        def matching():
+            identifiers = (
+                self._call(
+                    "ps",
+                    "--all",
+                    "--no-trunc",
+                    "--filter",
+                    "name=^/" + name + "$",
+                    "--format",
+                    "{{.ID}}",
+                )
+                .strip()
+                .splitlines()
             )
-            .strip()
-            .splitlines()
-        )
+            if len(identifiers) > 1 or any(
+                not re.fullmatch(r"[a-f0-9]{64}", identifier) for identifier in identifiers
+            ):
+                raise SandboxUnavailable("Cannot identify leased container for cleanup")
+            return identifiers
+
+        identifiers = matching()
         if not identifiers:
             return True
-        if len(identifiers) != 1 or not re.fullmatch(r"[a-f0-9]{64}", identifiers[0]):
-            raise SandboxUnavailable("Cannot identify leased container for cleanup")
-        instance = strict_json(self._call("inspect", identifiers[0]))[0]
+        try:
+            instance = strict_json(self._call("inspect", identifiers[0]))[0]
+        except ForgeError:
+            # A caller and independent supervisor can clean up the same lease.
+            # Only a successful exact-name inventory proving absence resolves
+            # this race; daemon/inspection errors alone never imply success.
+            if not matching():
+                return True
+            raise
         labels = instance.get("Config", {}).get("Labels", {})
         if (
             instance.get("Name") != "/" + name
@@ -377,7 +392,11 @@ class PythonContainer:
             or labels.get("org.agentforge.policy") != store.policy
         ):
             raise SandboxUnavailable("Cleanup refuses a container with mismatching identity")
-        self._call("rm", "--force", identifiers[0])
+        try:
+            self._call("rm", "--force", identifiers[0])
+        except ForgeError:
+            if matching():
+                raise
         return True
 
     def sweep(self) -> dict:

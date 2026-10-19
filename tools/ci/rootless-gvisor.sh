@@ -68,8 +68,8 @@ dockerd-rootless-setuptool.sh install --force
 systemctl --user restart docker
 task_socket="unix://$XDG_RUNTIME_DIR/docker.sock"
 docker --host "$task_socket" info
-docker --host "$task_socket" pull python:3.11-slim-bookworm
-task_image=$(docker --host "$task_socket" image inspect python:3.11-slim-bookworm --format '{{index .RepoDigests 0}}')
+task_image=python@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89
+docker --host "$task_socket" pull "$task_image"
 python - "$task_socket" "$task_image" <<'PY'
 import json
 import sys

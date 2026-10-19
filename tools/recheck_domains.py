@@ -6,10 +6,9 @@ import json
 from pathlib import Path
 
 from domain_cases import domains
+from qualification_batches import evaluate_batches
 
-from agentforge.contracts import contract_hash
 from agentforge.core import read_json, write_json
-from agentforge.testing import evaluate
 
 
 def main():
@@ -71,19 +70,19 @@ def main():
                 "error_type": "ValidationError",
             },
         ]
-        evaluation = args.output / (name + ".independent.json")
-        write_json(evaluation, {"contract_hash": contract_hash(spec), "cases": cases})
         report_path = args.output / (name + ".report.json")
-        report = evaluate(
-            root, report_path, timeout=30, evaluation_path=evaluation, container_config=config
-        )
+        report = evaluate_batches(root, spec, cases, args.output / name, config, timeout=30)
+        write_json(report_path, report, safe=True)
         item = {
             "name": name,
             "status": report["status"],
             "unique_cases": len(cases),
             "artifact": str(root),
             "artifact_hash": report["artifact_hash"],
-            "evaluation_sha256": hashlib.sha256(evaluation.read_bytes()).hexdigest(),
+            "case_set_sha256": hashlib.sha256(
+                json.dumps(cases, sort_keys=True, ensure_ascii=True).encode()
+            ).hexdigest(),
+            "batches": report["batches"],
             "metrics": report["metrics"],
             "report": str(report_path),
             "original_goal": spec["goal"],

@@ -176,7 +176,7 @@ print(json.dumps({{'blocked': blocked}}))
             "memory-control",
             "import sys,json\njson.load(sys.stdin)\nx=bytearray(32*1024**2)\nprint(json.dumps({'allocated':len(x)}))\n",
         )
-        assert control["results"][0]["output"] == {"allocated": 32 * 1024**2}, control
+        assert control["results"][0].get("output") == {"allocated": 32 * 1024**2}, control
         record("actual-memory-positive-control", control)
         result = guest(
             "memory", "import sys\nsys.stdin.read()\nx=bytearray(1024**3)\nprint('{}')\n"

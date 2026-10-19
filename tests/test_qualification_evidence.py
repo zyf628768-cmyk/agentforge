@@ -1,4 +1,6 @@
 import importlib.util
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -70,3 +72,12 @@ def test_pid_quota_requires_an_actual_kernel_event_increase():
     assert not module.pid_limit_hit([])
     assert not module.pid_limit_hit([{"pids.events": "max 0"}, {"pids.events": "max 0"}])
     assert module.pid_limit_hit([{"pids.events": "max 0"}, {"pids.events": "max 1"}])
+
+
+def test_crash_caller_bootstraps_in_isolated_python_mode():
+    helper = Path(__file__).resolve().parents[1] / "tools/qualify_crash_child.py"
+    result = subprocess.run(
+        [sys.executable, "-I", str(helper), "--help"], capture_output=True, text=True, timeout=10
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--container-config" in result.stdout

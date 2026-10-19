@@ -40,6 +40,11 @@ class LocalTransport:
         source_hint = (
             "" if planning else "Write actual source code in source, not a path or filename.\n"
         )
+        schema_hint = (
+            "Planning schemas are JSON objects; the response grammar enforces their supported fields."
+            if planning
+            else json.dumps(payload["text"]["format"]["schema"])
+        )
         body = {
             "model": payload["model"],
             "messages": [
@@ -48,7 +53,7 @@ class LocalTransport:
                     "content": payload["instructions"]
                     + "\nYour reply must be one JSON object conforming to this schema. "
                     + source_hint
-                    + json.dumps(payload["text"]["format"]["schema"]),
+                    + schema_hint,
                 },
                 {"role": "user", "content": payload["input"]},
             ],

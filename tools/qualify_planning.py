@@ -28,8 +28,9 @@ def main():
         parser.error("This qualification permits explicitly approved free local inference only")
     args.output.mkdir(parents=True)
     goal = (
-        "Return an object containing count, the number of ASCII digits (0 through 9) "
-        "in the input string; ignore every other character."
+        "The JSON input root is a string. Return a JSON object with a single integer "
+        "field count: the number of ASCII characters '0' through '9' in that string. "
+        "Ignore every other character."
     )
     rng = random.Random(726193)
     inputs = ["", "abc", "0123456789", "a0b9", "１２٣٤١", "💡x5é", '\\"123'] + [
@@ -49,7 +50,7 @@ def main():
         {"id": "invalid-array", "input": [], "error_type": "ValidationError"},
     ]
     ledger = BudgetLedger(args.output / "billing")
-    ledger.create("real-plan-build", dollars=0, tokens=100000, requests=2)
+    ledger.create("real-plan-build", dollars=0, tokens=100000, requests=3)
     backend = ResponsesBackend(
         config,
         LocalTransport(args.local_endpoint, approved=True),
@@ -63,7 +64,7 @@ def main():
         "independent_cases": len(cases),
     }
     try:
-        spec = backend.plan(goal, "ascii-digit-count", "python-json")
+        spec = backend.plan(goal, "ascii-digit-count", "python-json", review=True)
         result["actual_model_planning"] = True
         write_json(args.output / "plan.json", spec)
         if spec["inputs"].get("type") != "string":

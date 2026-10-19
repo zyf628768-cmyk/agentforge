@@ -282,7 +282,7 @@ print(json.dumps({'denied':denied,'denial_errno':denial_errno,'children':len(chi
             [
                 sys.executable,
                 "-I",
-                str(Path(__file__).resolve()),
+                str(Path(__file__).with_name("qualify_crash_child.py").resolve()),
                 "--crash-child",
                 "--container-config",
                 str(config_path),
@@ -324,7 +324,7 @@ print(json.dumps({'denied':denied,'denial_errno':denial_errno,'children':len(chi
                 [
                     sys.executable,
                     "-I",
-                    str(Path(__file__).resolve()),
+                    str(Path(__file__).with_name("qualify_crash_child.py").resolve()),
                     "--crash-child",
                     "--container-config",
                     str(config_path),

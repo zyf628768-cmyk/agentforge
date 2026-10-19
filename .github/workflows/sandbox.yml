@@ -1,11 +1,17 @@
 name: real-rootless-gvisor
 on:
   push:
-    branches: [feat/qualification-completion]
-    paths: ['tools/ci/build_gvisor.sh', 'tools/ci/rootless-gvisor.sh', 'tools/patches/**', 'tools/qualify_container.py', 'tools/container_evidence.py', '.github/workflows/sandbox.yml', 'src/agentforge/containers.py', 'src/agentforge/leases.py']
+    branches: [main, feat/qualification-completion]
+    paths: ['tools/ci/build_gvisor.sh', 'tools/ci/rootless-gvisor.sh', 'tools/patches/**', 'tools/qualify_container.py', 'tools/qualify_crash_child.py', 'tools/container_evidence.py', '.github/workflows/sandbox.yml', 'src/agentforge/containers.py', 'src/agentforge/leases.py']
   workflow_dispatch:
+    inputs:
+      rebuild_runtime:
+        description: Rebuild the pinned and patched runtime instead of reusing its verified binary
+        type: boolean
+        default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -21,11 +27,25 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -e '.[dev]'
+      - name: Recover the previously built and unit-tested patched runtime
+        id: runtime
+        if: ${{ !inputs.rebuild_runtime }}
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: built-pinned-gvisor-runtime
+          run-id: 39306103754
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/agentforge-gvisor-runtime
       - name: Build the fixed upstream rootless implementation and matching sidecars
+        if: ${{ inputs.rebuild_runtime || steps.runtime.outcome != 'success' }}
         run: bash tools/ci/build_gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime"
       - name: Provision an isolated disposable test runner
         run: |
           task_manifest_sha=$(sha256sum "$RUNNER_TEMP/agentforge-gvisor-runtime/runtime-provenance.json" | cut -d' ' -f1)
+          if [ "${{ steps.runtime.outcome }}" = success ]; then
+            test "$task_manifest_sha" = b08d336946d6cc32d17e0ccd58b7d4af2360cc61d54145a955251374b356e4a1
+          fi
           bash tools/ci/rootless-gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime" "$task_manifest_sha"
       - name: Exercise actual Python containment and crash recovery
         run: python tools/qualify_container.py --container-config sandbox-policy.json --output sandbox-evidence --restart-disposable-daemon

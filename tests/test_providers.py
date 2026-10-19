@@ -231,6 +231,93 @@ def test_model_planning_seals_identity():
     assert "json.load(sys.stdin)" not in request["instructions"]
 
 
+def test_local_planning_uses_typed_schemas_and_preserves_explicit_contract(tmp_path):
+    fields = {
+        "inputs": {"type": "string", "maxLength": 512},
+        "outputs": {"type": "integer"},
+        "steps": ["Count ASCII digits"],
+        "risks": ["Untrusted generated code"],
+        "acceptance": ["Ignore non-ASCII digits"],
+        "test_plan": ["Independent cases"],
+    }
+    response = {
+        "status": "completed",
+        "output": [
+            {"type": "message", "content": [{"type": "output_text", "text": json.dumps(fields)}]}
+        ],
+        "usage": {"input_tokens": 100, "output_tokens": 100},
+    }
+    transport = RecordedTransport([response])
+    transport.kind = "local-llama.cpp"
+    backend = ResponsesBackend(ModelConfig(model="typed-plan-fixture"), transport)
+    contract = {"inputs": fields["inputs"]}
+    spec = backend.plan("Count ASCII digits", "digit-count", "python-json", contract=contract)
+    assert spec["inputs"] == contract["inputs"] and spec["name"] == "digit-count"
+    request = transport.requests[0]
+    assert json.loads(request["input"])["planning_format"] == "typed-plan"
+    assert json.loads(request["input"])["template"]["inputs"] == contract["inputs"]
+    assert "outputs" not in json.loads(request["input"])["template"]
+    assert "spec_json" not in request["text"]["format"]["schema"]["properties"]
+    backend.save_receipts(tmp_path / "audit.json")
+    assert read_json(tmp_path / "audit.json")["planning_response"] == fields
+
+
+def test_planning_cannot_overwrite_an_operator_contract():
+    value = read_json(FIXTURES / "integer-stats.planning-response.json")["responses"][0]
+    backend = ResponsesBackend(ModelConfig(model="fixture"), RecordedTransport([value]))
+    spec = read_json(FIXTURES / "integer-stats.plan.json")
+    with pytest.raises(ForgeError, match="sealed input/output contract"):
+        backend.plan(
+            spec["goal"], spec["name"], spec["kind"], contract={"inputs": {"type": "string"}}
+        )
+
+
+def test_local_plan_self_review_is_bounded_and_auditable():
+    first = {
+        "inputs": {"type": "object"},
+        "outputs": {"type": "integer"},
+        "steps": ["Count digits"],
+        "risks": ["Untrusted source"],
+        "acceptance": ["Ignore other characters"],
+        "test_plan": ["Independent tests"],
+    }
+    corrected = {**first, "inputs": {"type": "string"}}
+    responses = [
+        {
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": json.dumps(fields)}],
+                }
+            ],
+            "usage": {"input_tokens": 100, "output_tokens": 100},
+        }
+        for fields in [first, corrected]
+    ]
+    transport = RecordedTransport(responses)
+    transport.kind = "local-llama.cpp"
+    backend = ResponsesBackend(
+        ModelConfig(model="review-fixture", total_token_limit=100000), transport
+    )
+    result = backend.plan(
+        "The JSON root is a string; count digits", "digits", "python-json", review=True
+    )
+    assert result["inputs"] == {"type": "string"}
+    assert not {"inputs", "outputs"} & json.loads(transport.requests[0]["input"])["template"].keys()
+    assert json.loads(transport.requests[1]["input"])["review_candidate"] == first
+    assert backend.planning_attempts == [first, corrected] and len(backend.receipts) == 2
+
+
+def test_plan_review_refuses_insufficient_request_budget_before_transport():
+    transport = RecordedTransport([])
+    transport.kind = "local-llama.cpp"
+    backend = ResponsesBackend(ModelConfig(model="review-fixture", max_requests=1), transport)
+    with pytest.raises(ForgeError, match="two remaining"):
+        backend.plan("Count", "count", "python-json", review=True)
+    assert not transport.requests
+
+
 def test_generation_is_extensible_beyond_known_offline_templates(tmp_path):
     # The adapter receives code from the transport, not a builtin operation selector.
     response = read_json(FIXTURES / "rot13.response.json")["responses"][0]

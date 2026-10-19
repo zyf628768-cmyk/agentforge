@@ -188,6 +188,11 @@ def parser() -> argparse.ArgumentParser:
         "--kind", choices=["text-cleaner", "wasm-json", "python-json"], default="text-cleaner"
     )
     planning.add_argument("--contract", type=Path, help="Human-editable input/output schemas")
+    planning.add_argument(
+        "--review-plan",
+        action="store_true",
+        help="One bounded free-local-model self-review; requires request/token budget",
+    )
     model_arguments(planning)
     build = commands.add_parser(
         "build", help="Generate executable WASM, scripts, schemas and tests"
@@ -336,6 +341,8 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
         write_json(target, plan("Clean text whitespace"))
         return {"plan": str(target.resolve()), "registry": str(registry.db)}, 0
     if command == "plan":
+        if args.review_plan and not args.local_model:
+            raise ForgeError("--review-plan requires an explicitly selected free local model")
         if args.output.exists():
             raise ForgeError("Output already exists")
         if args.response or args.model_config or args.local_model:
@@ -343,7 +350,13 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
                 raise ForgeError("Model planning requires a generic JSON target")
             backend = model_backend(args)
             try:
-                spec = backend.plan(args.goal, args.name, args.kind)
+                spec = backend.plan(
+                    args.goal,
+                    args.name,
+                    args.kind,
+                    contract=read_json(args.contract) if args.contract else None,
+                    review=args.review_plan,
+                )
             finally:
                 backend.save_receipts(args.model_receipts)
         elif args.kind == "text-cleaner":

@@ -148,6 +148,8 @@ class ResponsesBackend:
         self.reserved_tokens = 0
         self.reserved_cost = Decimal(0)
         self.deadline = None
+        self.last_planning_response = None
+        self.planning_attempts = []
 
     def request(self, data: dict, schema: dict) -> dict:
         config = self.config
@@ -187,6 +189,26 @@ class ResponsesBackend:
                 "of field names as a schema; fields belong inside properties. "
                 "Do not request network, credentials, host access or external packages."
             )
+            if data.get("planning_format") == "typed-plan":
+                instructions = (
+                    "Plan an editable compute-only Agent Skill. Return only the six requested "
+                    "fields: inputs, outputs, steps, risks, acceptance and test_plan. inputs "
+                    "and outputs are JSON Schema OBJECTS, not strings or bare field maps. "
+                    "A goal declaring a string JSON root requires inputs.type=string, without "
+                    "an input_string/text/value wrapper. Preserve primitive and array roots. "
+                    "Choose explicit root types from the goal. For object fields use properties "
+                    "and required; for arrays use items. Preserve any explicitly sealed contract. "
+                    "Refine steps and acceptance with semantic preconditions from the goal. "
+                    "Do not request network, credentials, host access or external packages. "
+                    "Identity and empty dependencies/options are sealed by the trusted planner."
+                )
+                if data.get("review_candidate"):
+                    instructions += (
+                        " Review the proposed plan against the literal goal. Correct any root "
+                        "type/wrapper contradiction and unsupported semantic assumption. "
+                        "Return the complete corrected six fields. This is a self-review, "
+                        "not independent behavioral acceptance."
+                    )
         elif data.get("typed_format") == "typed-engineering":
             instructions = (
                 "Implement the goal as a complete compute-only program. Return only the "
@@ -367,17 +389,19 @@ class ResponsesBackend:
             raise
 
     def save_receipts(self, path: Path):
-        write_json(
-            path,
-            {
-                "calls": self.receipts,
-                "reserved_cost_usd": str(self.reserved_cost),
-                "reserved_token_count": self.reserved_tokens,
-            },
-            safe=True,
-        )
+        value = {
+            "calls": self.receipts,
+            "reserved_cost_usd": str(self.reserved_cost),
+            "reserved_token_count": self.reserved_tokens,
+        }
+        if self.last_planning_response is not None:
+            value["planning_response"] = self.last_planning_response
+            value["planning_attempts"] = self.planning_attempts
+        write_json(path, value, safe=True)
 
-    def plan(self, goal: str, name: str, kind: str) -> dict:
+    def plan(
+        self, goal: str, name: str, kind: str, *, contract: dict | None = None, review: bool = False
+    ) -> dict:
         schema = {
             "type": "object",
             "additionalProperties": False,
@@ -386,20 +410,116 @@ class ResponsesBackend:
         }
         from .spec import general_plan
 
-        template = general_plan(goal, name, kind)
-        value = self.request(
-            {
-                "operation": "plan",
-                "template": template,
-                "requirement": "Refine input/output schemas, steps, risks and acceptance; return spec_json. Preserve name, kind and version.",
+        if contract is not None and (
+            not isinstance(contract, dict) or set(contract) - {"inputs", "outputs"}
+        ):
+            raise ForgeError("Planning contract permits only inputs and outputs")
+        template = general_plan(goal, name, kind, **(contract or {}))
+        typed = getattr(self.transport, "kind", "") == "local-llama.cpp"
+        if review and (not typed or not self.free):
+            raise ForgeError(
+                "Planning self-review is opt-in and restricted to the free local backend"
+            )
+        if review and self.config.max_requests - len(self.receipts) < 2:
+            raise ForgeError("Planning self-review requires two remaining model requests")
+        data = {
+            "operation": "plan",
+            # Default schemas are scaffold fallbacks, not inferred requirements.
+            # Showing the default object here anchors primitive-root plans on a
+            # wrapper that contradicts the user's goal.
+            "template": {
+                key: value
+                for key, value in template.items()
+                if key not in {"inputs", "outputs"} or key in (contract or {})
             },
+            "sealed_contract_fields": sorted(contract or {}),
+            "requirement": "Refine input/output schemas, steps, risks and acceptance. Preserve sealed fields.",
+        }
+        if typed:
+
+            def form(depth):
+                properties = {
+                    "type": {
+                        "enum": [
+                            "string",
+                            "integer",
+                            "number",
+                            "boolean",
+                            "object",
+                            "array",
+                            "null",
+                        ]
+                    },
+                    "description": {"type": "string", "maxLength": 300},
+                    "minimum": {"type": "number"},
+                    "maximum": {"type": "number"},
+                }
+                for field in ("minLength", "maxLength", "minItems", "maxItems"):
+                    properties[field] = {"type": "integer", "minimum": 0, "maximum": 32768}
+                if depth:
+                    child = form(depth - 1)
+                    properties.update(
+                        {
+                            "properties": {
+                                "type": "object",
+                                "maxProperties": 20,
+                                "additionalProperties": child,
+                            },
+                            "items": child,
+                            "required": {
+                                "type": "array",
+                                "maxItems": 20,
+                                "items": {"type": "string", "maxLength": 80},
+                            },
+                            "additionalProperties": {"type": "boolean"},
+                        }
+                    )
+                return {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["type"],
+                    "properties": properties,
+                }
+
+            fields = {
+                key: {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {"type": "string", "maxLength": 500},
+                }
+                for key in ("steps", "risks", "acceptance", "test_plan")
+            }
+            fields.update(
+                {
+                    key: {"const": template[key]} if key in (contract or {}) else form(3)
+                    for key in ("inputs", "outputs")
+                }
+            )
+            schema = {
+                "type": "object",
+                "additionalProperties": False,
+                "required": list(fields),
+                "properties": fields,
+            }
+            data["planning_format"] = "typed-plan"
+        value = self.request(
+            data,
             schema,
         )
-        spec = validate(strict_json(value["spec_json"]))
+        self.last_planning_response = value
+        self.planning_attempts.append(value)
+        if review:
+            value = self.request({**data, "review_candidate": value}, schema)
+            self.last_planning_response = value
+            self.planning_attempts.append(value)
+        spec = validate({**template, **value} if typed else strict_json(value["spec_json"]))
         if any(spec[k] != template[k] for k in ("name", "kind", "version", "goal")):
             raise ForgeError("Provider changed sealed plan identity")
         if any("type" not in spec[key] for key in ("inputs", "outputs")):
             raise ForgeError("Model planning must choose explicit input/output root types")
+        if any(spec[key] != template[key] for key in contract or {}):
+            raise ForgeError("Provider changed the explicitly sealed input/output contract")
         return spec
 
 

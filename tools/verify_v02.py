@@ -9,6 +9,7 @@ import sys
 import time
 from pathlib import Path
 
+from agentforge import __version__
 from agentforge.core import read_json, tree_hash, write_json
 
 
@@ -211,7 +212,7 @@ def verify(output: Path):
     assert gate["status"] == "refused" and not (output / "no-live-receipts.json").exists()
     summary = {
         "status": "passed",
-        "version": "0.2.0a1",
+        "version": __version__,
         "commands": len(records),
         "live_model_requests": 0,
         "credentials_inspected": False,

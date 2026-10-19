@@ -1,6 +1,8 @@
-# Production readiness — 0.2.0a1
+# Production readiness — 0.2.0a2
 
-Status: **offline engineering milestone; production qualification incomplete**.
+Status: **public CLI Alpha; offline hardening in progress**. Paid model testing is
+explicitly excluded from this development round. An independent security review
+cannot be replaced by the project's own automated checks.
 
 | Area | Implemented | Validation status / remaining gate |
 |---|---|---|
@@ -10,10 +12,12 @@ Status: **offline engineering milestone; production qualification incomplete**.
 | Repair/evolution | Generic generator injection, filtered feedback, baseline/independent gates and CAS activation | Real numeric defect repair and regression rejection offline |
 | WASM isolation | No imports/WASI, bounded memory/fuel/stack, contained compilation | Real guest tests and Windows OS quota probes |
 | Windows OS quotas | Job committed-memory, process count, CPU user-time and kill-on-close | Actual allocation denial and process-tree timeout probes |
-| Linux OS quotas | RLIMIT_AS/CPU/NOFILE/CORE with reduced WASM reservation | Code present; not physically verified on this Windows host |
+| Linux OS quotas | RLIMIT_AS/CPU/NOFILE/CORE with reduced WASM reservation | Actual Ubuntu CI execution; native-engine review remains separate |
 | Python isolation | Explicit local rootless socket, gVisor, immutable image, cgroup limits and pre-start inspection | Mocked daemon contract/refusal tests; actual environment absent |
 | Credential boundary | No automatic discovery; explicit selected read only behind live gates | Offline approval-gate tests; no real key read |
 | Version/storage | Immutable snapshots, redacted evidence at rest, atomic active-version CAS | Local SQLite/Git tests |
+| Crash recovery | Pre-create SQLite leases, independent supervisor, clock/boot expiry, late-create tombstones and retryable cleanup | Local persistence/failure tests; actual gVisor workflow required |
+| Cross-platform CI | Windows/Linux and Python 3.11–3.13 | [Six successful Alpha jobs](https://github.com/zyf628768-cmyk/agentforge/actions/runs/39257831996); hardening branch re-runs the matrix |
 
 Before production:
 
@@ -25,12 +29,14 @@ Before production:
    configuration. Execute hostile-Python filesystem/network/fork/memory/output
    and timeout tests against the actual container stack. Do not weaken preflight
    to make an unavailable environment look supported.
-3. Qualify crash recovery and a durable external container reaper/lease mechanism.
-   The adapter removes containers in finally, but CLI/daemon/host failure can defeat
-   that cleanup; this is a production blocker, not a guaranteed hard container TTL.
-4. Run the cross-platform CI matrix. Linux and other Python versions configured in
-   CI are not claimed as executed locally. Have an independent reviewer assess the
-   native engine, protocol boundaries and container policy.
+3. Operate the implemented independent lease supervisor under a restarting service
+   manager with durable state. Run actual crash/daemon recovery probes; daemon or
+   host outages are never claimed to have a hardware-enforced wall TTL. See
+   [sandbox operations](sandbox-operations.md).
+4. Keep the cross-platform matrix green for changes. The Alpha matrix already ran
+   successfully on six actual runners; this is no longer an unexecuted checklist
+   item. Have an independent reviewer assess the native engine, protocol boundaries
+   and container policy.
 5. Define deployment topology, authentication, tenant isolation, persistent billing
    limits, concurrent service operations, backups, telemetry and incident handling
    if a web/API service is desired. The product shipped here is a local CLI.

@@ -1,4 +1,4 @@
-# Security model — 0.2.0a1
+# Security model — 0.2.0a2
 
 Untrusted: generated code/files, provider responses, candidate cases, goals and
 input JSON. Trusted: installed AgentForge/Python, Wasmtime/JIT, OS, selected local
@@ -25,8 +25,8 @@ These are committed-memory limits, not exact RSS measurements.
 See [Microsoft Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
 
 Linux trusted worker sets finite address-space/CPU/core/file-descriptor limits
-before compiling a guest, with reduced Wasmtime memory reservation. This code has
-not been physically qualified on this Windows host. Unsupported OS or failed
+before compiling a guest, with reduced Wasmtime memory reservation. Actual Ubuntu
+CI exercises the worker and reports its limits. Unsupported OS or failed
 containment refuses execution. Native-engine vulnerabilities remain in the TCB.
 
 Modules <=100 KB, <=128 cases, requests <=250 KB, input/output <=32 KiB per call;
@@ -50,10 +50,18 @@ read back before start; unexpected resources, privileges or mounts refuse execut
 Only generated scripts are staged; no host home, credentials, sockets or evaluator
 corpus are mounted. Streams are capped and execution uses a wall watchdog.
 
-All containers are removed in finally. Daemon/CLI/host failure can interrupt cleanup;
-a qualified durable reaper/lease is still required for production. The current host
-has no qualified runtime, so actual Python execution is blocked. Mocked daemon tests
-are protocol/policy tests, not proof of real container escape resistance.
+Container names and durable SQLite leases are recorded before create. A separate
+supervisor inventories only its policy and matching leased identities, removes
+expired or interrupted containers, and retries cleanup after daemon recovery.
+Tombstones catch late create responses. New executions require a fresh heartbeat;
+the supervisor must itself be managed by a restarting service manager. Created
+entrypoint, arguments, labels, tmpfs, ulimits, restart/logging and auxiliary device
+settings are also attested. See [operations](sandbox-operations.md).
+
+The Windows development host cannot run Python guests. The dedicated actual-gVisor
+workflow is the evidence source for runtime qualification. Mocked daemon tests alone
+never establish real escape resistance. OS/daemon outages suspend cleanup until
+recovery; a lease is not a guaranteed hard TTL during those outages.
 See [gVisor rootless](https://gvisor.dev/docs/user_guide/rootless/) and
 [Docker create flags](https://docs.docker.com/reference/cli/docker/container/create/).
 

@@ -25,6 +25,9 @@ sha512sum "$task_gvisor_dir/gvisor.tar.zstd"
 
 task_uid=$(id -u)
 task_user=$(id -un)
+findmnt -n -o FSTYPE /sys/fs/cgroup
+test -f /sys/fs/cgroup/cgroup.controllers
+cat /sys/fs/cgroup/cgroup.controllers
 export XDG_RUNTIME_DIR="/run/user/$task_uid"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 sudo mkdir -p /etc/systemd/system/user@.service.d

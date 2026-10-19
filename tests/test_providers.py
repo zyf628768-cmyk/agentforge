@@ -72,7 +72,7 @@ def test_provider_failure_modes_keep_reservation(mutation):
     assert len(transport.requests) == 1
 
 
-def test_live_transport_payload_without_any_network(monkeypatch):
+def test_live_transport_payload_without_any_network(monkeypatch, tmp_path):
     observed = []
 
     class Opener:
@@ -84,6 +84,10 @@ def test_live_transport_payload_without_any_network(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "build_opener", lambda *handlers: Opener())
     transport = OpenAITransport("fake-test-value", approved=True)
+    from agentforge.billing import BudgetLedger
+
+    ledger = BudgetLedger(tmp_path / "budget")
+    ledger.create("test", dollars=1, tokens=100000, requests=10)
     backend = ResponsesBackend(
         ModelConfig(
             model="explicit-model",
@@ -92,6 +96,8 @@ def test_live_transport_payload_without_any_network(monkeypatch):
             output_usd_per_million=2,
         ),
         transport,
+        ledger=ledger,
+        account="test",
     )
     backend.request({}, BUNDLE_SCHEMA)
     assert len(observed) == 1 and backend.receipts[0]["cost_usd"] == "0.0005"
@@ -119,7 +125,7 @@ def test_spend_cap_blocks_before_transport():
     assert not backend.receipts
 
 
-def test_unknown_outcome_has_no_automatic_retry():
+def test_unknown_outcome_has_no_automatic_retry(tmp_path):
     class Failure:
         offline = False
         calls = 0
@@ -129,11 +135,17 @@ def test_unknown_outcome_has_no_automatic_retry():
             raise ForgeError("unknown outcome")
 
     transport = Failure()
+    from agentforge.billing import BudgetLedger
+
+    ledger = BudgetLedger(tmp_path / "budget")
+    ledger.create("test", dollars=1, tokens=100000, requests=10)
     backend = ResponsesBackend(
         ModelConfig(
             model="explicit", max_cost_usd=1, input_usd_per_million=1, output_usd_per_million=1
         ),
         transport,
+        ledger=ledger,
+        account="test",
     )
     with pytest.raises(ForgeError):
         backend.request({}, BUNDLE_SCHEMA)

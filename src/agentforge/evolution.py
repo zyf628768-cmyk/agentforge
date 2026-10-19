@@ -69,7 +69,7 @@ def evolve(
     started = time.monotonic()
     backend = getattr(generator, "backend", None)
     if backend:
-        if not backend.transport.offline and (
+        if not backend.free and (
             budget.cost_usd <= 0 or backend.config.max_cost_usd > budget.cost_usd
         ):
             raise ForgeError("Model spend cap must fit within the explicit evolution cost budget")

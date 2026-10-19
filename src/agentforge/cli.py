@@ -6,6 +6,7 @@ import argparse
 import json
 import platform
 import shutil
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -20,6 +21,15 @@ from .testing import compare, evaluate
 
 
 def model_arguments(command):
+    command.add_argument(
+        "--local-model", help="Explicit loopback llama.cpp chat endpoint; no paid API"
+    )
+    command.add_argument(
+        "--approve-local-model", action="store_true", help="Authorize free local inference"
+    )
+    command.add_argument(
+        "--budget-account", help="Previously initialized persistent budget account"
+    )
     command.add_argument("--model-config", type=Path, help="Explicit model, token and spend limits")
     command.add_argument(
         "--response", type=Path, help="Offline Responses protocol fixture; no network"
@@ -55,7 +65,21 @@ def model_backend(args):
         if args.model_config
         else ModelConfig(model="offline-fixture")
     )
-    if args.response:
+    local_endpoint = getattr(args, "local_model", None)
+    ledger = None
+    if local_endpoint:
+        from .local_model import LocalTransport
+
+        if args.response or args.approve_model_request or args.credential_env:
+            raise ForgeError("Select local inference without fixture or paid credential options")
+        if not args.model_config or not getattr(args, "approve_local_model", False):
+            raise ForgeError(
+                "Local inference requires explicit model config and --approve-local-model"
+            )
+        if config.max_cost_usd or config.input_usd_per_million or config.output_usd_per_million:
+            raise ForgeError("Free local inference requires zero monetary rates and cap")
+        transport = LocalTransport(local_endpoint, approved=True)
+    elif args.response:
         if args.approve_model_request or args.credential_env:
             raise ForgeError("Offline fixture mode does not accept live credential options")
         value = read_json(args.response)
@@ -77,9 +101,19 @@ def model_backend(args):
 
         if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,80}", args.credential_env):
             raise ForgeError("Invalid explicit credential variable")
-        # This single selected read is reachable only after all explicit live gates.
+        # Defer the selected credential read until the durable account is validated too.
+        transport = None
+    account = getattr(args, "budget_account", None)
+    if transport is None or not transport.offline:
+        from .billing import BudgetLedger
+
+        if not account:
+            raise ForgeError("Real inference requires an initialized --budget-account")
+        ledger = BudgetLedger(args.home / "billing")
+        ledger.status(account)  # Validate before handing the backend any requests.
+    if transport is None:
         transport = OpenAITransport(os.environ.get(args.credential_env, ""), approved=True)
-    return ResponsesBackend(config, transport)
+    return ResponsesBackend(config, transport, ledger=ledger, account=account)
 
 
 def container_arguments(command):
@@ -117,6 +151,33 @@ def parser() -> argparse.ArgumentParser:
         "--home", type=Path, default=Path(".agentforge"), help="Local SQLite/Git registry"
     )
     commands = cli.add_subparsers(dest="command", required=True)
+    billing = commands.add_parser(
+        "budget", help="Durable shared inference budgets and explicit reconciliation"
+    )
+    billing_actions = billing.add_subparsers(dest="action", required=True)
+    create = billing_actions.add_parser(
+        "create", help="Initialize immutable lifetime limits for an account"
+    )
+    create.add_argument("account")
+    create.add_argument("--usd", type=str, required=True)
+    create.add_argument("--tokens", type=int, required=True)
+    create.add_argument("--requests", type=int, required=True)
+    status = billing_actions.add_parser(
+        "status", help="Show charged/held budget and unresolved reservations"
+    )
+    status.add_argument("account")
+    history = billing_actions.add_parser(
+        "history", help="List up to 1000 durable reservation records"
+    )
+    history.add_argument("account")
+    reconcile = billing_actions.add_parser(
+        "reconcile", help="Record operator-reviewed actual usage for an unresolved call"
+    )
+    reconcile.add_argument("reservation")
+    reconcile.add_argument("--usd", required=True)
+    reconcile.add_argument("--tokens", type=int, required=True)
+    reconcile.add_argument("--receipt", type=Path, required=True)
+    reconcile.add_argument("--note", required=True)
     init = commands.add_parser("init", help="Initialize local registry and editable example plan")
     init.add_argument("path", type=Path, nargs="?", default=Path("."))
     planning = commands.add_parser(
@@ -213,6 +274,31 @@ def parser() -> argparse.ArgumentParser:
 
 def dispatch(args: argparse.Namespace) -> tuple[object, int]:
     command = args.command
+    if command == "budget":
+        from .billing import BudgetLedger
+
+        ledger = BudgetLedger(args.home / "billing")
+        if args.action == "create":
+            return ledger.create(
+                args.account, dollars=args.usd, tokens=args.tokens, requests=args.requests
+            ), 0
+        if args.action == "status":
+            return ledger.status(args.account), 0
+        if args.action == "history":
+            return ledger.history(args.account), 0
+        if (
+            not args.receipt.is_file()
+            or args.receipt.is_symlink()
+            or args.receipt.stat().st_size > 1_000_000
+        ):
+            raise ForgeError("Require a bounded regular provider receipt")
+        return ledger.reconcile(
+            args.reservation,
+            amount=args.usd,
+            tokens=args.tokens,
+            receipt=args.receipt.read_bytes(),
+            note=redact(args.note),
+        ), 0
     if command == "sandbox":
         from .containers import PythonContainer
 
@@ -242,7 +328,7 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
     if command == "plan":
         if args.output.exists():
             raise ForgeError("Output already exists")
-        if args.response or args.model_config:
+        if args.response or args.model_config or args.local_model:
             if args.kind == "text-cleaner":
                 raise ForgeError("Model planning requires a generic JSON target")
             backend = model_backend(args)
@@ -261,14 +347,14 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
         spec = read_json(args.spec)
         if args.output.name != spec.get("name"):
             raise ForgeError("Output directory must match the Skill name")
-        if args.bundle and (args.response or args.model_config):
+        if args.bundle and (args.response or args.model_config or args.local_model):
             raise ForgeError("Select one artifact source")
         backend = None
         if args.bundle:
             from .artifacts import BundleGenerator
 
             generator = BundleGenerator.from_file(args.bundle)
-        elif args.response or args.model_config:
+        elif args.response or args.model_config or args.local_model:
             from .providers import ModelGenerator
 
             backend = model_backend(args)
@@ -296,13 +382,13 @@ def dispatch(args: argparse.Namespace) -> tuple[object, int]:
     if command == "evolve":
         backend = None
         generator = None
-        if args.bundle and (args.response or args.model_config):
+        if args.bundle and (args.response or args.model_config or args.local_model):
             raise ForgeError("Select one candidate source")
         if args.bundle:
             from .artifacts import BundleGenerator
 
             generator = BundleGenerator.from_file(args.bundle)
-        elif args.response or args.model_config:
+        elif args.response or args.model_config or args.local_model:
             from .providers import ModelGenerator
 
             backend = model_backend(args)
@@ -399,7 +485,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
         result, code = dispatch(args)
-    except (ForgeError, OSError, ValueError, KeyError, TypeError, RecursionError) as exc:
+    except (
+        ForgeError,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        RecursionError,
+        sqlite3.Error,
+    ) as exc:
         result, code = {"error": str(exc), "status": "refused"}, 2
     print(json.dumps(redact(result), ensure_ascii=True, indent=2))
     return code

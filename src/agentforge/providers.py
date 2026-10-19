@@ -21,6 +21,7 @@ from typing import Protocol
 from jsonschema import Draft202012Validator
 
 from .artifacts import BUNDLE_SCHEMA, BundleGenerator
+from .billing import BudgetLedger
 from .core import ForgeError, artifact_destination, strict_json, write_json
 from .spec import validate
 
@@ -78,7 +79,7 @@ class OpenAITransport:
         # Never inherit proxies which might receive user credentials or change origins.
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         try:
-            with opener.open(request, timeout=timeout) as response:
+            with opener.open(request, timeout=min(timeout, 120)) as response:
                 raw = response.read(1_000_001)
             if len(raw) > 1_000_000:
                 raise ForgeError("Model response exceeds size budget")
@@ -117,16 +118,25 @@ class ModelConfig:
         if (
             not 1 <= self.max_requests <= 20
             or not 64 <= self.max_output_tokens <= 32000
-            or not 0 < self.timeout_seconds <= 120
+            or not 0 < self.timeout_seconds <= 600
             or not 100 <= self.total_token_limit <= 1_000_000
         ):
             raise ForgeError("Model request/token/time budget outside permitted bounds")
 
 
 class ResponsesBackend:
-    def __init__(self, config: ModelConfig, transport: Transport):
+    def __init__(
+        self,
+        config: ModelConfig,
+        transport: Transport,
+        *,
+        ledger: BudgetLedger | None = None,
+        account: str | None = None,
+    ):
         self.config, self.transport = config, transport
-        if not transport.offline and (
+        self.ledger, self.account = ledger, account
+        self.free = transport.offline or getattr(transport, "free", False)
+        if not self.free and (
             config.max_cost_usd <= 0
             or min(config.input_usd_per_million, config.output_usd_per_million) <= 0
         ):
@@ -158,6 +168,9 @@ class ResponsesBackend:
             "reads one JSON value from stdin and writes one JSON value to stdout. "
             "Include executable implementation, tests/cases.json, README.md and examples/input.json/output.json. "
             "Cases have id,input,expected or error_type=ValidationError. No external dependencies."
+            " Keep the bundle compact: exactly five files, one source script, README under 100 words, "
+            "one or two test cases, and the two example JSON files. No markdown fences in source. "
+            "Input JSON must match the supplied schema directly; do not add a wrapper object."
         )
         payload = {
             "model": config.model,
@@ -185,10 +198,21 @@ class ResponsesBackend:
         ) / 1_000_000
         if self.reserved_tokens + allowance > config.total_token_limit:
             raise ForgeError("Model token budget exhausted before request")
-        if not self.transport.offline and self.reserved_cost + amount > Decimal(
-            str(config.max_cost_usd)
-        ):
+        if not self.free and self.reserved_cost + amount > Decimal(str(config.max_cost_usd)):
             raise ForgeError("Model spend cap would be exceeded; no request sent")
+        reservation = None
+        if not self.transport.offline:
+            if self.ledger is None or not self.account:
+                raise ForgeError(
+                    "Real model requests require an explicit persistent budget account"
+                )
+            reservation = self.ledger.reserve(
+                self.account,
+                amount=0 if self.free else amount,
+                tokens=allowance,
+                request_hash=hashlib.sha256(raw).hexdigest(),
+                model=config.model,
+            )
         self.reserved_tokens += allowance
         self.reserved_cost += amount
         receipt = {
@@ -198,7 +222,11 @@ class ResponsesBackend:
             "status": "reserved",
             "reserved_token_count": allowance,
             "reserved_cost_usd": str(amount),
-            "cost_usd": "0" if self.transport.offline else str(amount),
+            "cost_usd": "0" if self.free else str(amount),
+            "reservation_id": reservation,
+            "transport": getattr(
+                self.transport, "kind", "fixture" if self.transport.offline else "openai-responses"
+            ),
         }
         self.receipts.append(receipt)
         try:
@@ -250,12 +278,21 @@ class ResponsesBackend:
                     "status": "completed",
                     "request_id": response.get("id"),
                     "usage": usage,
-                    "cost_usd": "0" if self.transport.offline else str(actual),
+                    "cost_usd": "0" if self.free else str(actual),
                 }
             )
+            if reservation:
+                self.ledger.finish(
+                    reservation,
+                    amount=0 if self.free else actual,
+                    tokens=usage["input_tokens"] + usage["output_tokens"],
+                    receipt=json.dumps(receipt, sort_keys=True).encode(),
+                )
             return output
         except Exception:
             receipt["status"] = "failed-or-unknown-reservation-retained"
+            if reservation:
+                self.ledger.unknown(reservation)
             raise
 
     def save_receipts(self, path: Path):
@@ -311,6 +348,8 @@ class ModelGenerator:
         source = (
             "offline-model-protocol-fixture"
             if self.backend.transport.offline
-            else "openai-responses:" + self.backend.config.model
+            else getattr(self.backend.transport, "kind", "openai-responses")
+            + ":"
+            + self.backend.config.model
         )
         return BundleGenerator(bundle, source=source).generate(spec, destination)

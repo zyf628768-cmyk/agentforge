@@ -1,0 +1,37 @@
+name: offline-distribution
+on:
+  push:
+    branches: [main, feat/production-completion]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-wheelhouse:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+        python: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build free native wheels for this exact runner
+        run: python -m pip wheel --only-binary=:all: --wheel-dir wheelhouse ".[dev]"
+      - name: Install offline into a fresh environment and execute acceptance
+        run: python tools/verify_offline_install.py --wheelhouse wheelhouse --venv work/offline-env --output offline-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            wheelhouse
+            offline-evidence

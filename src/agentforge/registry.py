@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -37,6 +38,9 @@ class Registry:
         return db
 
     def git(self, *args: str) -> str:
+        executable = shutil.which("git")
+        if not executable:
+            raise ForgeError("Local Git executable unavailable")
         env = {
             "PATH": os.environ.get("PATH", ""),
             "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
@@ -47,7 +51,7 @@ class Registry:
         try:
             result = subprocess.run(
                 [
-                    "git",
+                    executable,
                     "-c",
                     "core.hooksPath=" + os.devnull,
                     "-c",

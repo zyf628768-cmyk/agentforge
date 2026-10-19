@@ -34,6 +34,12 @@ and `lease_dir` (private persistent operator-owned directory). Run and doctor al
 support this config. The supervisor must run independently before guest execution.
 Config files cannot grant extra capabilities.
 
+Alternatively `--python-runtime-config FILE` (alias of `--container-config`) selects
+exactly `backend: "python-wasi"`, `runtime_dir`, and `manifest_sha256`. This sealed
+runtime executes Python inside WASM with read-only capabilities; no Docker or
+supervisor is needed. See [Python/WASI](python-wasi.md). Container supervision
+commands continue to require the gVisor lease policy.
+
 Evolution has `--max-iterations`, `--seconds` and `--cost-usd`; live backend cap must
 fit the evolution cap. Unknown requests keep reservations and stop rather than
 blindly retrying. Every new candidate uses a separate immutable version directory.

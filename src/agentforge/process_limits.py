@@ -179,6 +179,15 @@ def bounded_worker(
         if job:
             policy = job.evidence()
         return subprocess.CompletedProcess(command, process.returncode, stdout, stderr), policy
+    except subprocess.TimeoutExpired as exc:
+        if job:
+            job.close()
+            job = None
+        if process.poll() is None:
+            process.kill()
+        process.communicate()
+        exc.returncode = process.returncode
+        raise
     finally:
         if job:
             job.close()  # Kill interpreter descendants before waiting on shared pipes.

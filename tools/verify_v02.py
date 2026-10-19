@@ -225,13 +225,12 @@ def verify(output: Path):
         "regression_rejected": True,
         "stable_hash_retained": active_after["hash"],
         "os_limits": doctor["probe"]["os_limits"],
-        "python_runtime": "blocked; actual rootless gVisor environment not available/provisioned",
+        "python_runtime": "default blocked without explicit policy; qualify_wasi.py tests the separately provisioned CPython/WASI backend",
         "docker_binary_present": bool(shutil.which("docker")),
         "production_ready": False,
         "remaining": [
             "approved real-model quality/cost acceptance",
             "real Linux/gVisor hostile-code integration and cleanup/reaper qualification",
-            "cross-platform CI execution",
             "independent security review and deployment operations",
         ],
     }

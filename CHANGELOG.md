@@ -2,6 +2,13 @@
 
 ## 0.2.0a2 — sandbox recovery and qualification
 
+- Execute generic Python/stdlib JSON Skills in explicitly selected, sealed CPython/WASI;
+  enforce read-only capabilities, bounded streams/fuel/memory and host quotas.
+- Run actual CSV execution, defect repair, rejected regression and hostile capability
+  probes; build pinned official CPython/WASI with recorded provenance.
+- Terminate Linux workers on parent death and retain actual timeout exit codes.
+- Document actual upstream rootless gVisor systemd failure without weakening cgroups.
+
 - Persist leases before container creation; independently supervise expiry, crashes,
   late daemon responses and cleanup retries. Refuse execution without a live supervisor.
 - Attest container identity, entrypoint, arguments, tmpfs, ulimits, logging, restart

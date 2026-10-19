@@ -119,7 +119,7 @@ class PythonWasi:
                 "status": "blocked",
                 "results": [],
                 "command": command,
-                "exit_code": None,
+                "exit_code": getattr(exc, "returncode", None),
                 "error": type(exc).__name__,
                 "isolation": policy,
             }

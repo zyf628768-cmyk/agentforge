@@ -89,7 +89,7 @@ class Sandbox:
             except (subprocess.TimeoutExpired, OSError, ResourceContainmentError) as exc:
                 return {
                     "command": command,
-                    "exit_code": None,
+                    "exit_code": getattr(exc, "returncode", None),
                     "status": "blocked",
                     "error": type(exc).__name__,
                     "wall_seconds": time.monotonic() - started,

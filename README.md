@@ -10,7 +10,7 @@ tests executable artifacts, evaluates repair candidates, rejects regressions and
 preserves immutable SQLite/Git version history. It runs locally by default.
 
 This iteration adds provider-neutral engineering bundles, an OpenAI Responses
-backend, generic WASM/JSON execution and a fail-closed Python container adapter.
+backend, generic WASM/JSON execution, sealed CPython/WASI and a fail-closed Python container adapter.
 It accepts arbitrary implementation code for supported compute-only contracts;
 it is not a switch which maps every goal to the old text-cleaner template.
 The Alpha is publicly released. Windows/Linux and Python 3.11–3.13 CI passed.
@@ -46,11 +46,13 @@ agentforge run skills/integer-stats --input skills/integer-stats/examples/input.
 
 The numeric Skill returns `{"sum":6,"count":3}`. A separate ROT13 implementation
 preserves Unicode and JSON escapes. A Python CSV-column summary project is also
-generated; its execution is blocked until the required rootless gVisor environment
-and approved image digest are supplied, with a private lease directory and live
-independent supervisor. No generated Python is run on the host. See
+generated and executes in an explicitly selected CPython/WASI runtime. Real tests
+cover CSV repair, rejected regressions and denied guest capabilities. See
+[Python/WASI setup](docs/python-wasi.md). No generated Python is run on the host. See
 [sandbox operations](docs/sandbox-operations.md) for crash recovery and real
-gVisor qualification commands and evidence requirements.
+gVisor qualification commands and evidence requirements. Actual rootless gVisor
+qualification found an upstream systemd/cgroup startup defect and remains blocked;
+resource controls are never disabled to bypass it.
 
 `--bundle FILE` accepts the same engineering format from another generator without
 using a model. A bundle contains real source (`scripts/main.wat` or `main.py`),

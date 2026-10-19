@@ -4,8 +4,7 @@ on:
     paths:
       - '.github/workflows/python-wasi.yml'
       - 'tools/ci/build_python_wasi.py'
-      - 'src/agentforge/python_wasi.py'
-      - 'src/agentforge/_wasi_worker.py'
+      - 'src/agentforge/**'
       - 'tools/qualify_wasi.py'
   workflow_dispatch:
 permissions:

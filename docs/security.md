@@ -37,6 +37,13 @@ an expected numeric one. Negative-input cases must actually violate input schema
 
 ## Python container adapter
 
+An independent explicitly selected [CPython/WASI backend](python-wasi.md) also
+executes pure-compute Python on Windows/Linux. It exposes only read-only approved
+runtime/scripts and bounded JSON streams, never native generated host Python.
+Its 64 MiB guest and 512 MiB Windows / 1 GiB Linux worker limits are separate from
+the smaller no-import WASM limits above. Linux workers install parent-death SIGKILL;
+actual kernel termination is covered by a Linux-only test.
+
 Only an explicitly selected local rootless Unix socket is eligible. Remote Docker
 contexts and inherited DOCKER_HOST/config/registry credentials are not used.
 Preflight requires Linux, rootless, cgroup v2, resource support, seccomp and runsc.
@@ -58,8 +65,10 @@ the supervisor must itself be managed by a restarting service manager. Created
 entrypoint, arguments, labels, tmpfs, ulimits, restart/logging and auxiliary device
 settings are also attested. See [operations](sandbox-operations.md).
 
-The Windows development host cannot run Python guests. The dedicated actual-gVisor
-workflow is the evidence source for runtime qualification. Mocked daemon tests alone
+The Windows development host cannot run gVisor guests. Actual rootless qualification
+found an upstream systemd/cgroup startup failure; the path remains fail-closed
+without disabling resource controls. See [recorded blocker](python-wasi.md#gvisor-status).
+The dedicated actual-gVisor workflow is the evidence source. Mocked daemon tests alone
 never establish real escape resistance. OS/daemon outages suspend cleanup until
 recovery; a lease is not a guaranteed hard TTL during those outages.
 See [gVisor rootless](https://gvisor.dev/docs/user_guide/rootless/) and

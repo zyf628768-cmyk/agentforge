@@ -190,6 +190,9 @@ class ResponsesBackend:
                 "Do not implement a WASM run function or use input_length. "
                 "Every JSON file must contain valid JSON with double quotes, never Python repr. "
                 "Test input/expected must be actual JSON values, not JSON-encoded strings."
+                " json.load returns the contract root itself: do not add or read an input/value wrapper. "
+                "For a string contract, value is already the text; do not parse it again as JSON. "
+                "For an array contract, iterate value directly. The schema applies to the root value."
             )
         elif target == "wasm-json":
             instructions += (

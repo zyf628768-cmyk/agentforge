@@ -6,7 +6,9 @@ labelled as fixtures. No provider credentials are discovered or needed.
 
 Provision trusted official binaries and a reviewed GGUF separately; record immutable
 revisions, SHA-256, source URLs and licenses. The local acceptance uses official
-Qwen/Qwen2.5-Coder-3B-Instruct-GGUF Q4_K_M and llama.cpp b11669. Provisioning downloads
+Qwen/Qwen2.5-Coder-3B-Instruct-GGUF and Qwen/Qwen2.5-Coder-7B-Instruct-GGUF Q4_K_M,
+with llama.cpp b11669. [Actual results and failures](actual-local-results.md) are
+distinct from offline fixtures. Provisioning downloads
 free software/models; Skill execution never downloads or installs them.
 
 ```sh

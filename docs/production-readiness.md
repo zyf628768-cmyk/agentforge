@@ -20,15 +20,19 @@ cannot be replaced by the project's own automated checks.
 | Credential boundary | No automatic discovery; explicit selected read only behind live gates | Offline approval-gate tests; no real key read |
 | Version/storage | Immutable snapshots, redacted evidence at rest, atomic active-version CAS | Local SQLite/Git tests |
 | Crash recovery | Pre-create SQLite leases, independent supervisor, clock/boot expiry, late-create tombstones and retryable cleanup | Local persistence/failure tests; actual gVisor workflow required |
-| Cross-platform CI | Windows/Linux and Python 3.11–3.13 | [Six successful hardening jobs](https://github.com/zyf628768-cmyk/agentforge/actions/runs/39263848349); Linux parent-death probe executes |
+| Cross-platform CI | Windows/Linux and Python 3.11–3.15 | [Ten successful jobs](https://github.com/zyf628768-cmyk/agentforge/actions/runs/39275481118); Linux parent-death observation race corrected |
+| Native offline installation | Ten OS/Python-specific wheelhouses; fresh venv with no index fallback | [Ten successful distribution jobs](https://github.com/zyf628768-cmyk/agentforge/actions/runs/39275480923); real commands, JUnit and original three demonstrations |
 
 Before production:
 
-1. Approve an exact model, key reuse/new-key choice and spend cap, then perform a
-   real-model quality/cost/latency acceptance set across several domains. Model
-   protocol fixtures do not establish synthesis quality. Prices in config must be
-   reviewed. Shared durable reservations now span processes/restarts using the same
-   home/account; they are not a provider-enforced account billing cap.
+1. Extend real-model quality acceptance across more domains. Actual free local
+   Qwen 3B/7B inference has now run with unseen evaluator cases: interval merging
+   passed, while other outputs exposed incorrect model expectations and input
+   handling. Failures are retained and rejected. See [actual local results](actual-local-results.md).
+   This is not arbitrary-goal qualification. Paid-provider quality/cost/latency is
+   still untested and requires the user's separate exact model/credential/spend
+   authorization. Shared durable reservations span processes/restarts using the
+   same home/account; they are not a provider-enforced account billing cap.
 2. Resolve the reviewed upstream gVisor rootless/systemd cgroup defect before
    container qualification. The dedicated runner was provisioned and actual
    qualification attempted; startup failed before guest execution. Retain that
@@ -40,7 +44,7 @@ Before production:
    host outages are never claimed to have a hardware-enforced wall TTL. See
    [sandbox operations](sandbox-operations.md).
 4. Keep the cross-platform matrix green for changes. The Alpha matrix already ran
-   successfully on six actual runners; this is no longer an unexecuted checklist
+   successfully on ten actual runners; this is no longer an unexecuted checklist
    item. Have an independent reviewer assess the native engine, protocol boundaries
    and container policy.
 5. Define deployment topology, authentication, tenant isolation, persistent billing

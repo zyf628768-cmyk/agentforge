@@ -13,13 +13,15 @@ This iteration adds provider-neutral engineering bundles, an OpenAI Responses
 backend, generic WASM/JSON execution, sealed CPython/WASI and a fail-closed Python container adapter.
 It accepts arbitrary implementation code for supported compute-only contracts;
 it is not a switch which maps every goal to the old text-cleaner template.
-The Alpha is publicly released. Windows/Linux and Python 3.11–3.13 CI passed.
+The Alpha is publicly released. All ten Windows/Linux and Python 3.11–3.15 CI jobs
+and the corresponding ten fresh offline installation jobs passed.
 No paid model requests or real credential inspection are part of offline development.
 An explicitly approved [free local model backend](docs/local-model.md) performs
 actual llama.cpp inference. [Shared durable budgets](docs/budgets.md) preserve
 request/token/money limits across processes and restarts; unknown charges remain held.
-Authored protocol fixtures are explicitly labelled; live-model quality acceptance
-and independent security review remain separate qualification gates.
+Authored protocol fixtures are explicitly labelled. Actual free 3B/7B local
+generation has independent success/failure records; [measured results](docs/actual-local-results.md)
+do not establish arbitrary-goal model quality or independent security review.
 
 ## Install
 

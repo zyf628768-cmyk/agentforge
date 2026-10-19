@@ -6,6 +6,8 @@ task_commit=8ecc635e5e32b8eb1cb2acdc308d480f00bf7264
 task_output=$(realpath -m "${1:?runtime output directory is required}")
 test ! -e "$task_output"
 task_source=$(mktemp -d)
+sudo apt-get update -qq
+sudo apt-get install -y --no-install-recommends libbpf-dev libelf-dev clang llvm
 git -C "$task_source" init
 git -C "$task_source" remote add origin https://github.com/google/gvisor.git
 git -C "$task_source" fetch --depth=1 origin "$task_commit"

@@ -11,8 +11,8 @@ from collections import Counter
 from fractions import Fraction
 
 
-def domains():
-    rng = random.Random(72819)
+def domains(seed=72819):
+    rng = random.Random(seed)
     invoices = [[], [{"quantity": 3, "unit_cents": 199}, {"quantity": 2, "unit_cents": 50}]]
     invoices += [
         [
@@ -80,7 +80,7 @@ def domains():
         },
         {
             "name": "merge-intervals",
-            "goal": "Merge overlapping OR TOUCHING integer intervals. Input array of [start,end] pairs with start<=end. Sort ascending and return merged array. Empty => [].",
+            "goal": "Merge closed intervals with integer endpoints. Merge exactly when next.start <= current.end; touching means equal endpoints. Do not merge an interval starting at current.end+1. Input [start,end] pairs satisfy start<=end. Return sorted merged intervals. Empty => [].",
             "inputs": {
                 "type": "array",
                 "maxItems": 30,

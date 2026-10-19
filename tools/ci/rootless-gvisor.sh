@@ -15,11 +15,16 @@ sudo apt-get install -y --no-install-recommends docker-ce-rootless-extras
 
 # All binaries come from the same fixed source build, never a floating release.
 task_runtime_dir=$(realpath "${1:?explicit pinned runtime directory is required}")
-python - "$task_runtime_dir" <<'PY'
+task_manifest_sha=${2:?reviewed runtime manifest SHA-256 is required}
+python - "$task_runtime_dir" "$task_manifest_sha" <<'PY'
 import hashlib,json,sys
 from pathlib import Path
-root=Path(sys.argv[1]);manifest=json.loads((root/'runtime-provenance.json').read_text())
+root=Path(sys.argv[1]);raw=(root/'runtime-provenance.json').read_bytes()
+assert len(sys.argv[2])==64 and all(c in '0123456789abcdef' for c in sys.argv[2])
+assert hashlib.sha256(raw).hexdigest()==sys.argv[2]
+manifest=json.loads(raw)
 assert manifest['commit']=='8ecc635e5e32b8eb1cb2acdc308d480f00bf7264'
+assert manifest.get('cgroup_unit_tests')=='passed'
 assert {'runsc','gvisor-bin/checkpointgofer','gvisor-bin/runsc-metric-server'} <= set(manifest['files'])
 for name,digest in manifest['files'].items():
     path=root/name

@@ -407,6 +407,7 @@ class ModelGenerator:
             if case.get("suite") in {"unit", "integration"} and not case.get("passed", False)
         ][:16]
         previous_diagnosis = self.last_diagnosis
+        repairing = typed and (bool(feedback) or self.previous_source is not None)
         if previous_diagnosis == "generated-expectation":
             # A failed oracle-repair candidate must not keep anchoring later
             # generations on the same known-fallible expected literal.
@@ -439,7 +440,7 @@ class ModelGenerator:
                     "example_output": spec["outputs"],
                 },
             }
-            if feedback:
+            if repairing:
                 diagnosis = {
                     "type": "string",
                     "enum": ["implementation", "generated-expectation", "both", "uncertain"],
@@ -447,7 +448,7 @@ class ModelGenerator:
                 schema["properties"] = {"diagnosis": diagnosis, **schema["properties"]}
                 schema["required"].insert(0, "diagnosis")
         data = {
-            "operation": "repair" if typed and feedback else "build",
+            "operation": "repair" if repairing else "build",
             "spec": spec,
             "generated_test_failures": feedback,
         }
@@ -465,7 +466,7 @@ class ModelGenerator:
                 path_rule="Use exactly these five relative paths; never put main.py at project root.",
             )
         value = self.backend.request(data, schema)
-        self.last_diagnosis = value.get("diagnosis") if typed and feedback else None
+        self.last_diagnosis = value.get("diagnosis") if repairing else None
         bundle = (
             {
                 "files": [

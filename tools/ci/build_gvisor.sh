@@ -19,7 +19,6 @@ printf '%s  %s\n' 17247e8a84245f59d3bc633d0cfe0a840992a7760a11af1a30012d03da3160
 chmod 0755 "$task_bazel"
 cd "$task_source"
 "$task_bazel" --batch build --jobs=4 --local_resources=memory=6000 -c opt //runsc:runsc //debian:gvisor-bin-tar
-"$task_bazel" --batch test --jobs=4 --local_resources=memory=6000 --test_output=errors //runsc/cgroup:cgroup_test
 mkdir -p "$task_output"
 cp bazel-bin/runsc/runsc_/runsc "$task_output/runsc"
 tar -xf bazel-bin/debian/gvisor-bin-tar.tar -C "$task_output"
@@ -31,5 +30,21 @@ root=Path(sys.argv[1])
 files={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}
 assert {'runsc','gvisor-bin/checkpointgofer','gvisor-bin/runsc-metric-server'} <= set(files)
 (root/'runtime-provenance.json').write_text(json.dumps({'source':'https://github.com/google/gvisor','commit':sys.argv[2],'upstream_pr':13853,'merged_upstream':False,'bazel_version':'8.3.1','files':files},indent=2))
+PY
+# These upstream unit tests assume no live system service manager. Isolate only
+# their mount namespace, then drop back to the original operator UID/GID. The
+# host bus, actual rootless daemon and later guest policy remain unchanged.
+task_operator_uid=$(id -u)
+task_operator_gid=$(id -g)
+task_operator_home=$(getent passwd "$task_operator_uid" | cut -d: -f6)
+sudo unshare --mount --propagation private --fork bash -c '
+  mount -t tmpfs -o nosuid,nodev,noexec tmpfs /run
+  exec setpriv --reuid "$1" --regid "$2" --clear-groups env HOME="$3" "$4" --batch test --jobs=4 --local_resources=memory=6000 --test_output=errors //runsc/cgroup:cgroup_test
+' agentforge-cgroup-units "$task_operator_uid" "$task_operator_gid" "$task_operator_home" "$task_bazel"
+python - "$task_output/runtime-provenance.json" <<'PY'
+import json,sys
+from pathlib import Path
+p=Path(sys.argv[1]);value=json.loads(p.read_text());value['cgroup_unit_tests']='passed'
+p.write_text(json.dumps(value,indent=2))
 PY
 "$task_output/runsc" --version

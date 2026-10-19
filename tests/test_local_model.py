@@ -88,9 +88,11 @@ def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp
         ],
         "usage": {"input_tokens": 100, "output_tokens": 100},
     }
-    transport = RecordedTransport([response, response])
+    transport = RecordedTransport([response, response, response])
     transport.kind = "local-llama.cpp"
-    generator = ModelGenerator(ResponsesBackend(ModelConfig(model="test-fixture"), transport))
+    generator = ModelGenerator(
+        ResponsesBackend(ModelConfig(model="test-fixture", max_requests=3), transport)
+    )
     generator.feedback = [
         {
             "id": "self-check",
@@ -129,6 +131,13 @@ def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp
     assert retry["previous_model_diagnosis"] == "generated-expectation"
     assert "generated_expected" not in retry["generated_test_failures"][0]
     assert "PRIVATE-EVALUATOR-SENTINEL" not in transport.requests[1]["input"]
+    generator.feedback = [generator.feedback[1]]
+    generator.previous_source = artifact["source"]
+    generator.generate(spec, tmp_path / "private-only-retry" / "echo-integer")
+    private_retry = json.loads(transport.requests[2]["input"])
+    assert private_retry["operation"] == "repair"
+    assert private_retry["generated_test_failures"] == []
+    assert "PRIVATE-EVALUATOR-SENTINEL" not in transport.requests[2]["input"]
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0a4 — scoped model and native isolation qualification
+
+- Distinguish implementation faults from generator-authored expectation faults;
+  retain model diagnoses and avoid repeatedly anchoring repair on a bad literal.
+- Expand separate evaluation to eight compute domains with 128 positive and 16
+  negative independent cases; support explicit bounded real-model repair trials.
+- Reject malformed local model envelopes with controlled refusals.
+- Require positive network/memory controls and specific OOM evidence; observe
+  actual kernel CPU/memory/PID controls and CPU throttling in native qualification.
+- Build a fixed upstream rootless gVisor implementation with matching sidecars and
+  a hash-verified toolchain; preserve actual compilation/qualification failures.
+- Record the user's human-review pass statement with explicit evidence provenance.
+
 ## 0.2.0a3 — durable budgets and real local model acceptance
 
 - Persist cross-process money/token/request reservations before real inference;

@@ -28,6 +28,9 @@ def main():
     parser.add_argument("--approve-local-model", action="store_true")
     parser.add_argument("--repair-iterations", type=int, choices=range(3), default=0)
     parser.add_argument("--seconds", type=float, default=1800)
+    parser.add_argument(
+        "--domain", action="append", help="Explicit subset for a separately recorded trial"
+    )
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Output must be new")
@@ -40,6 +43,10 @@ def main():
     args.output.mkdir(parents=True)
     deadline = time.monotonic() + args.seconds
     selected = domains()
+    if args.domain:
+        if not set(args.domain) <= {domain["name"] for domain in selected}:
+            parser.error("Unknown qualification domain")
+        selected = [domain for domain in selected if domain["name"] in args.domain]
     config = read_json(args.runtime_config)
     records = {
         "fixture_generation": not bool(args.local_endpoint),

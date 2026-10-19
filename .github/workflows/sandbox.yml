@@ -24,7 +24,9 @@ jobs:
       - name: Build the fixed upstream rootless implementation and matching sidecars
         run: bash tools/ci/build_gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime"
       - name: Provision an isolated disposable test runner
-        run: bash tools/ci/rootless-gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime"
+        run: |
+          task_manifest_sha=$(sha256sum "$RUNNER_TEMP/agentforge-gvisor-runtime/runtime-provenance.json" | cut -d' ' -f1)
+          bash tools/ci/rootless-gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime" "$task_manifest_sha"
       - name: Exercise actual Python containment and crash recovery
         run: python tools/qualify_container.py --container-config sandbox-policy.json --output sandbox-evidence --restart-disposable-daemon
       - uses: actions/upload-artifact@v4
@@ -38,7 +40,7 @@ jobs:
             gvisor-build.log
             ${{ runner.temp }}/agentforge-gvisor-runtime/runtime-provenance.json
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
-          name: qualified-pinned-gvisor-runtime
+          name: built-pinned-gvisor-runtime
           path: ${{ runner.temp }}/agentforge-gvisor-runtime

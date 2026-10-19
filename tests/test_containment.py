@@ -203,6 +203,23 @@ def test_container_protocol_pins_controls_and_cleans_after_execution(tmp_path):
     assert all(c[:3] == ["docker", "--host", SOCKET] for c in container.commands)
 
 
+def test_successful_caller_cleanup_does_not_prematurely_request_reaping(tmp_path):
+    normal = attesting_control()
+
+    def observe(command):
+        if "rm" in command:
+            rows = container.lease_store().outstanding()
+            assert len(rows) == 1 and rows[0]["state"] == "running"
+        return normal(command)
+
+    container = prepared_container(tmp_path, control=observe, attach=lambda *a: (0, "{}", ""))
+    root = tmp_path / "source"
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts/main.py").write_text("print('{}')")
+    assert container.execute(root, [{}], {"inputs": {}, "outputs": {}})["results"][0]["ok"]
+    assert not container.lease_store().outstanding()
+
+
 def test_container_timeout_still_removes_guest(tmp_path):
     root = BundleGenerator.from_file(FIXTURES / "csv-summary.bundle.json").generate(
         read_json(FIXTURES / "csv-summary.plan.json"), tmp_path / "csv-summary"

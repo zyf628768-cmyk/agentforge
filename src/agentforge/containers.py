@@ -559,7 +559,9 @@ class PythonContainer:
                 )
             finally:
                 # Name was recorded before create; cleanup works even if the response was lost.
-                store.update(name, "cleanup-pending")
+                # Keep the existing finite expiry while the caller cleans up. Mark
+                # pending only on failure; signalling it before rm makes the
+                # supervisor race every successful caller cleanup immediately.
                 try:
                     self.remove_leased(name)
                     store.remove_staging(name)

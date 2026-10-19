@@ -183,3 +183,34 @@ def test_malformed_local_envelopes_produce_controlled_refusals(monkeypatch, enve
             },
             timeout=1,
         )
+
+
+@pytest.mark.parametrize("operation", ["plan", "build"])
+def test_local_wire_keeps_planning_separate_from_program_generation(monkeypatch, operation):
+    observed = []
+
+    class Opener:
+        def open(self, request, timeout):
+            observed.append(json.loads(request.data))
+            return io.BytesIO(
+                json.dumps(
+                    {
+                        "choices": [{"finish_reason": "stop", "message": {"content": "{}"}}],
+                        "usage": {"prompt_tokens": 10, "completion_tokens": 1},
+                    }
+                ).encode()
+            )
+
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *args: Opener())
+    LocalTransport("http://127.0.0.1:31871/v1/chat/completions", approved=True).post(
+        {
+            "model": "wire-fixture",
+            "instructions": "Return the requested object.",
+            "input": json.dumps({"operation": operation}),
+            "max_output_tokens": 64,
+            "text": {"format": {"name": "wire-test", "schema": {"type": "object"}}},
+        },
+        timeout=1,
+    )
+    hint = "Write actual source code in source"
+    assert (hint in observed[0]["messages"][0]["content"]) == (operation == "build")

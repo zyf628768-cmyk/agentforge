@@ -35,6 +35,11 @@ class LocalTransport:
         self.endpoint = endpoint
 
     def post(self, payload: dict, *, timeout: float) -> dict:
+        context = strict_json(payload.get("input", "{}"))
+        planning = isinstance(context, dict) and context.get("operation") == "plan"
+        source_hint = (
+            "" if planning else "Write actual source code in source, not a path or filename.\n"
+        )
         body = {
             "model": payload["model"],
             "messages": [
@@ -42,7 +47,7 @@ class LocalTransport:
                     "role": "system",
                     "content": payload["instructions"]
                     + "\nYour reply must be one JSON object conforming to this schema. "
-                    "Write actual source code in source, not a path or filename.\n"
+                    + source_hint
                     + json.dumps(payload["text"]["format"]["schema"]),
                 },
                 {"role": "user", "content": payload["input"]},

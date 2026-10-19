@@ -1,0 +1,33 @@
+{
+  "contract_hash": "f19a084f1384da34bf995aaa53d9e170217c1b330554ae1f98dc66143a0a68b8",
+  "cases": [
+    {
+      "id": "private-mixed",
+      "input": [
+        -47,
+        13,
+        0,
+        -2
+      ],
+      "expected": {
+        "sum": -36,
+        "count": 4
+      }
+    },
+    {
+      "id": "private-empty",
+      "input": [],
+      "expected": {
+        "sum": 0,
+        "count": 0
+      }
+    },
+    {
+      "id": "invalid-float",
+      "input": [
+        1.5
+      ],
+      "error_type": "ValidationError"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "unit-space",
+    "input": {
+      "text": "  hello   world  "
+    },
+    "expected": {
+      "text": "hello world"
+    }
+  },
+  {
+    "id": "unit-tab",
+    "input": {
+      "text": "a\t\tb"
+    },
+    "expected": {
+      "text": "a b"
+    }
+  },
+  {
+    "id": "unit-empty",
+    "input": {
+      "text": ""
+    },
+    "expected": {
+      "text": ""
+    }
+  }
+]

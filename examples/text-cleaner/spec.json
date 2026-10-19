@@ -1,0 +1,60 @@
+{
+  "name": "text-cleaner",
+  "version": "0.1.0",
+  "goal": "Clean text whitespace",
+  "kind": "text-cleaner",
+  "inputs": {
+    "type": "object",
+    "required": [
+      "text"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "text": {
+        "type": "string",
+        "maxLength": 8192
+      }
+    }
+  },
+  "outputs": {
+    "type": "object",
+    "required": [
+      "text"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "text": {
+        "type": "string"
+      }
+    }
+  },
+  "dependencies": [],
+  "steps": [
+    "Validate JSON text input",
+    "Trim/collapse ASCII whitespace in WASM",
+    "Return UTF-8 JSON, preserving case and non-ASCII bytes"
+  ],
+  "risks": [
+    "Generated code is untrusted",
+    "Unicode whitespace is preserved",
+    "No filesystem, network, environment or WASI capabilities"
+  ],
+  "acceptance": [
+    "Collapse ASCII space/tab/CR/LF/VT/FF",
+    "Preserve Unicode and case",
+    "Reject non-string input",
+    "Do not change an accepted artifact"
+  ],
+  "test_plan": [
+    "unit",
+    "integration",
+    "invalid-input",
+    "independent-holdout",
+    "specification",
+    "dependencies",
+    "security"
+  ],
+  "options": {
+    "preserve_case": true
+  }
+}

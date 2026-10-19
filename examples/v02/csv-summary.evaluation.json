@@ -1,0 +1,17 @@
+{
+  "contract_hash": "f26631c39d59916f294927369553ce936996334adc424a5e2a068e102b2cc072",
+  "cases": [
+    {
+      "id": "private-negative",
+      "input": {
+        "csv": "v\n-2\n5\n",
+        "column": "v"
+      },
+      "expected": {
+        "count": 2,
+        "sum": 3.0,
+        "mean": 1.5
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "responses": [
+    {
+      "id": "offline-recording",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 200
+      },
+      "output": [
+        {
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "{\"files\": [{\"path\": \"scripts/main.wat\", \"content\": \"(module\\n (memory (export \\\"memory\\\") 1 1)\\n (func (export \\\"run\\\") (param $n i32) (result i32)\\n  (local $i i32) (local $c i32) (local $remaining i32) (local $base i32)\\n  (block $end (loop $loop\\n   (br_if $end (i32.ge_u (local.get $i) (local.get $n)))\\n   (local.set $c (i32.load8_u (local.get $i)))\\n   (if (local.get $remaining)\\n    (then\\n     (if (i32.and (i32.eq (local.get $remaining) (i32.const 1)) (i32.eq (local.get $c) (i32.const 117)))\\n      (then (local.set $remaining (i32.const 4)))\\n      (else (local.set $remaining (i32.sub (local.get $remaining) (i32.const 1))))))\\n    (else\\n     (if (i32.eq (local.get $c) (i32.const 92)) (then (local.set $remaining (i32.const 1)))\\n      (else\\n       (local.set $base (i32.const 0))\\n       (if (i32.and (i32.ge_u (local.get $c) (i32.const 65)) (i32.le_u (local.get $c) (i32.const 90)))\\n        (then (local.set $base (i32.const 65))))\\n       (if (i32.and (i32.ge_u (local.get $c) (i32.const 97)) (i32.le_u (local.get $c) (i32.const 122)))\\n        (then (local.set $base (i32.const 97))))\\n       (if (local.get $base)\\n        (then (local.set $c (i32.add (local.get $base)\\n          (i32.rem_u (i32.add (i32.sub (local.get $c) (local.get $base)) (i32.const 13)) (i32.const 26))))))))))\\n   (i32.store8 (i32.add (i32.const 32768) (local.get $i)) (local.get $c))\\n   (local.set $i (i32.add (local.get $i) (i32.const 1)))\\n   (br $loop)))\\n  (local.get $n)))\\n\"}, {\"path\": \"README.md\", \"content\": \"# rot13\\n\\nApply ROT13 to ASCII letters, preserving Unicode and JSON escapes.\\n\\nUse agentforge run; never execute generated Python on the host.\\n\"}, {\"path\": \"tests/cases.json\", \"content\": \"[{\\\"id\\\": \\\"normal\\\", \\\"input\\\": \\\"Hello \\\\u4e16\\\\u754c!\\\", \\\"expected\\\": \\\"Uryyb \\\\u4e16\\\\u754c!\\\"}, {\\\"id\\\": \\\"caps\\\", \\\"input\\\": \\\"ABCxyz\\\", \\\"expected\\\": \\\"NOPklm\\\"}]\"}, {\"path\": \"examples/input.json\", \"content\": \"\\\"Hello \\\\u4e16\\\\u754c!\\\"\"}, {\"path\": \"examples/output.json\", \"content\": \"\\\"Uryyb \\\\u4e16\\\\u754c!\\\"\"}]}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

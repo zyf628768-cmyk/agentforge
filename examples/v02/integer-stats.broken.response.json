@@ -1,0 +1,24 @@
+{
+  "responses": [
+    {
+      "id": "offline-recording",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 200
+      },
+      "output": [
+        {
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "{\"files\": [{\"path\": \"scripts/main.wat\", \"content\": \"(module\\n (memory (export \\\"memory\\\") 1 1)\\n (global $out (mut i32) (i32.const 32775))\\n (data (i32.const 32768) \\\"{\\\\22sum\\\\22:\\\")\\n (func $emit (param $c i32)\\n  (i32.store8 (global.get $out) (local.get $c))\\n  (global.set $out (i32.add (global.get $out) (i32.const 1))))\\n (func $number (param $n i32) (local $len i32)\\n  (if (i32.lt_s (local.get $n) (i32.const 0))\\n   (then (call $emit (i32.const 45)) (local.set $n (i32.sub (i32.const 0) (local.get $n)))))\\n  (loop $digits\\n   (i32.store8 (i32.add (i32.const 60000) (local.get $len))\\n    (i32.add (i32.rem_u (local.get $n) (i32.const 10)) (i32.const 48)))\\n   (local.set $len (i32.add (local.get $len) (i32.const 1)))\\n   (local.set $n (i32.div_u (local.get $n) (i32.const 10)))\\n   (br_if $digits (local.get $n)))\\n  (loop $reverse\\n   (local.set $len (i32.sub (local.get $len) (i32.const 1)))\\n   (call $emit (i32.load8_u (i32.add (i32.const 60000) (local.get $len))))\\n   (br_if $reverse (local.get $len))))\\n (func (export \\\"run\\\") (param $n i32) (result i32)\\n  (local $i i32) (local $c i32) (local $v i32) (local $sign i32)\\n  (local $have i32) (local $sum i32) (local $count i32)\\n  (local.set $sign (i32.const 1))\\n  (loop $parse\\n   (local.set $c (i32.load8_u (local.get $i)))\\n   (if (i32.and (i32.ge_u (local.get $c) (i32.const 48)) (i32.le_u (local.get $c) (i32.const 57)))\\n    (then\\n     (local.set $v (i32.add (i32.mul (local.get $v) (i32.const 10)) (i32.sub (local.get $c) (i32.const 48))))\\n     (local.set $have (i32.const 1)))\\n    (else\\n     (if (i32.eq (local.get $c) (i32.const 45)) (then (local.set $sign (i32.const -1))))\\n     (if (i32.and (local.get $have) (i32.or (i32.eq (local.get $c) (i32.const 44)) (i32.eq (local.get $c) (i32.const 93))))\\n      (then\\n       (local.set $sum (i32.add (local.get $sum) (local.get $v)))\\n       (local.set $count (i32.add (local.get $count) (i32.const 1)))\\n       (local.set $v (i32.const 0)) (local.set $have (i32.const 0)) (local.set $sign (i32.const 1))))))\\n   (local.set $i (i32.add (local.get $i) (i32.const 1)))\\n   (br_if $parse (i32.lt_u (local.get $i) (local.get $n))))\\n  (call $number (local.get $sum))\\n  (call $emit (i32.const 44)) (call $emit (i32.const 34))\\n  (call $emit (i32.const 99)) (call $emit (i32.const 111)) (call $emit (i32.const 117))\\n  (call $emit (i32.const 110)) (call $emit (i32.const 116)) (call $emit (i32.const 34)) (call $emit (i32.const 58))\\n  (call $number (local.get $count)) (call $emit (i32.const 125))\\n  (i32.sub (global.get $out) (i32.const 32768))))\\n\"}, {\"path\": \"README.md\", \"content\": \"# integer-stats\\n\\nCompute sum and count of signed integers.\\n\\nUse agentforge run; never execute generated Python on the host.\\n\"}, {\"path\": \"tests/cases.json\", \"content\": \"[{\\\"id\\\": \\\"normal\\\", \\\"input\\\": [1, 2, 3], \\\"expected\\\": {\\\"sum\\\": 6, \\\"count\\\": 3}}, {\\\"id\\\": \\\"negative\\\", \\\"input\\\": [-7, 2], \\\"expected\\\": {\\\"sum\\\": -5, \\\"count\\\": 2}}]\"}, {\"path\": \"examples/input.json\", \"content\": \"[1, 2, 3]\"}, {\"path\": \"examples/output.json\", \"content\": \"{\\\"sum\\\": 6, \\\"count\\\": 3}\"}]}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

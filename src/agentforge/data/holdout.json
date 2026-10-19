@@ -1,0 +1,10 @@
+[
+  {"id": "holdout-case", "input": {"text": " AGeNt Forge "}, "expected": {"text": "AGeNt Forge"}},
+  {"id": "holdout-unicode", "input": {"text": "  你好  世界 😀  "}, "expected": {"text": "你好 世界 😀"}},
+  {"id": "holdout-controls", "input": {"text": "\t\r\n A\u000b\u000cB \t"}, "expected": {"text": "A B"}},
+  {"id": "holdout-nbsp", "input": {"text": "A B"}, "expected": {"text": "A B"}},
+  {"id": "holdout-only", "input": {"text": " \t\r\n"}, "expected": {"text": ""}},
+  {"id": "invalid-number", "input": {"text": 42}, "error_type": "ValidationError"},
+  {"id": "invalid-missing", "input": {}, "error_type": "ValidationError"},
+  {"id": "invalid-extra", "input": {"text": "a", "other": true}, "error_type": "ValidationError"}
+]

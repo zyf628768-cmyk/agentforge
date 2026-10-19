@@ -1,0 +1,24 @@
+{
+  "responses": [
+    {
+      "id": "offline-recording",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 200
+      },
+      "output": [
+        {
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "{\"spec_json\": \"{\\\"name\\\": \\\"rot13\\\", \\\"version\\\": \\\"0.2.0\\\", \\\"kind\\\": \\\"wasm-json\\\", \\\"goal\\\": \\\"Apply ROT13 to ASCII letters, preserving Unicode and JSON escapes\\\", \\\"inputs\\\": {\\\"type\\\": \\\"string\\\", \\\"maxLength\\\": 4096}, \\\"outputs\\\": {\\\"type\\\": \\\"string\\\"}, \\\"dependencies\\\": [], \\\"steps\\\": [\\\"Validate local JSON input\\\", \\\"Implement the stated goal\\\", \\\"Return JSON conforming to the sealed output contract\\\"], \\\"risks\\\": [\\\"Generated code is untrusted\\\", \\\"No network or host capabilities\\\"], \\\"acceptance\\\": [\\\"Pass independently authored behavioral cases\\\", \\\"Preserve prior passing behavior\\\"], \\\"test_plan\\\": [\\\"generated\\\", \\\"independent\\\", \\\"invalid-input\\\", \\\"regression\\\", \\\"security\\\"], \\\"options\\\": {}}\"}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

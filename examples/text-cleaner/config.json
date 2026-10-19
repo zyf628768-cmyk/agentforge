@@ -1,0 +1,4 @@
+{
+  "backend": "wasmtime-no-imports",
+  "max_bytes": 32768
+}

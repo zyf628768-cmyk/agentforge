@@ -1,0 +1,11 @@
+{
+  "name": "text-cleaner",
+  "version": "0.1.0",
+  "kind": "text-cleaner",
+  "source": "offline-deterministic",
+  "entrypoint": "scripts/clean.wasm",
+  "sha256": "fc3e7e96af9b29290564785b374525e7efda7cf83d3b2d60bdf4ee1135955583",
+  "dependencies": [],
+  "compatibility": "agentforge-wasm-abi-1",
+  "variant": "correct"
+}

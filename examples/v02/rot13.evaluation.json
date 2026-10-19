@@ -1,0 +1,20 @@
+{
+  "contract_hash": "3e2254abe4557b15412951f7816a8cd22ca731b2fdbb8aa98b205a106da10ef3",
+  "cases": [
+    {
+      "id": "private-escapes",
+      "input": "A\n\u001f\"\\😀",
+      "expected": "N\n\u001f\"\\😀"
+    },
+    {
+      "id": "private-empty",
+      "input": "",
+      "expected": ""
+    },
+    {
+      "id": "invalid-number",
+      "input": 3,
+      "error_type": "ValidationError"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "responses": [
+    {
+      "id": "offline-recording",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 200
+      },
+      "output": [
+        {
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "{\"files\": [{\"path\": \"scripts/main.py\", \"content\": \"\\\"\\\"\\\"Generated-target example: execute only in the configured gVisor container.\\\"\\\"\\\"\\n\\nimport csv\\nimport io\\nimport json\\nimport statistics\\nimport sys\\n\\nvalue = json.load(sys.stdin)\\nrows = list(csv.DictReader(io.StringIO(value[\\\"csv\\\"])))\\nnumbers = [float(row[value[\\\"column\\\"]]) for row in rows]\\njson.dump({\\\"count\\\": len(numbers), \\\"sum\\\": sum(numbers),\\n           \\\"mean\\\": statistics.mean(numbers) if numbers else None}, sys.stdout, allow_nan=False)\\n\"}, {\"path\": \"README.md\", \"content\": \"# csv-summary\\n\\nSummarize a numeric CSV column as count, sum and mean.\\n\\nUse agentforge run; never execute generated Python on the host.\\n\"}, {\"path\": \"tests/cases.json\", \"content\": \"[{\\\"id\\\": \\\"normal\\\", \\\"input\\\": {\\\"csv\\\": \\\"name,value\\\\nA,2\\\\nB,4\\\\n\\\", \\\"column\\\": \\\"value\\\"}, \\\"expected\\\": {\\\"count\\\": 2, \\\"sum\\\": 6.0, \\\"mean\\\": 3.0}}]\"}, {\"path\": \"examples/input.json\", \"content\": \"{\\\"csv\\\": \\\"name,value\\\\nA,2\\\\nB,4\\\\n\\\", \\\"column\\\": \\\"value\\\"}\"}, {\"path\": \"examples/output.json\", \"content\": \"{\\\"count\\\": 2, \\\"sum\\\": 6.0, \\\"mean\\\": 3.0}\"}]}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

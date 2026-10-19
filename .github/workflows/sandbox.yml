@@ -1,5 +1,8 @@
 name: real-rootless-gvisor
 on:
+  push:
+    branches: [feat/qualification-completion]
+    paths: ['tools/ci/build_gvisor.sh', 'tools/ci/rootless-gvisor.sh', 'tools/qualify_container.py', '.github/workflows/sandbox.yml', 'src/agentforge/containers.py']
   workflow_dispatch:
 permissions:
   contents: read
@@ -9,7 +12,7 @@ concurrency:
 jobs:
   containment:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,8 +21,10 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -e '.[dev]'
+      - name: Build the fixed upstream rootless implementation and matching sidecars
+        run: bash tools/ci/build_gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime"
       - name: Provision an isolated disposable test runner
-        run: bash tools/ci/rootless-gvisor.sh
+        run: bash tools/ci/rootless-gvisor.sh "$RUNNER_TEMP/agentforge-gvisor-runtime"
       - name: Exercise actual Python containment and crash recovery
         run: python tools/qualify_container.py --container-config sandbox-policy.json --output sandbox-evidence --restart-disposable-daemon
       - uses: actions/upload-artifact@v4
@@ -30,3 +35,10 @@ jobs:
             sandbox-evidence
             sandbox-provision.log
             sandbox-policy.json
+            gvisor-build.log
+            ${{ runner.temp }}/agentforge-gvisor-runtime/runtime-provenance.json
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: qualified-pinned-gvisor-runtime
+          path: ${{ runner.temp }}/agentforge-gvisor-runtime

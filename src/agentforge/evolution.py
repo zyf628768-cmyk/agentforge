@@ -204,6 +204,8 @@ def evolve(
                 "comparison": comparison,
                 "classification": classify(report),
             }
+            if getattr(generator, "last_diagnosis", None):
+                attempt["model_diagnosis"] = generator.last_diagnosis
             result["attempts"].append(attempt)
             if comparison["accepted"]:
                 # Explicit evolve is authorization to update a local active pointer only.

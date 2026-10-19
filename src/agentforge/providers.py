@@ -183,6 +183,17 @@ class ResponsesBackend:
                 "the goal and input/output contract are authoritative. Correct inconsistent tests "
                 "as well as code; do not hardcode the reported example results."
             )
+            if data.get("operation") == "repair":
+                instructions += (
+                    " This is a repair request. First identify the fault owner in diagnosis: "
+                    "implementation, generated-expectation, both, or uncertain. "
+                    "generated_expected is a fallible expectation written by the generator, "
+                    "not an authoritative answer key. observed_output is also not an answer key. "
+                    "Use the goal and contract to decide which is wrong. If source implements "
+                    "the contract correctly, preserve it and correct inconsistent generated tests "
+                    "AND example outputs. Return a complete replacement artifact, not copied "
+                    "failure records. Independent evaluation remains external to this request."
+                )
         if target == "python-json":
             instructions += (
                 " Target is Python only. Write a complete top-level program using import json,sys; "
@@ -363,6 +374,7 @@ class ModelGenerator:
         self.feedback = []
         self.last_bundle = None
         self.previous_source = None
+        self.last_diagnosis = None
 
     def generate(self, spec: dict, destination: Path, variant: str = "correct") -> Path:
         validate(spec)
@@ -380,6 +392,20 @@ class ModelGenerator:
         schema = copy.deepcopy(BUNDLE_SCHEMA)
         schema["properties"]["files"]["items"]["properties"]["path"]["enum"] = required_paths
         typed = getattr(self.backend.transport, "kind", "") == "local-llama.cpp"
+        # Defense in depth: external evaluator cases never enter model feedback,
+        # even when callers construct a ModelGenerator directly rather than evolve.
+        feedback = [
+            {
+                "case_id": case["id"],
+                "suite": case["suite"],
+                "origin": "generator-authored-test",
+                "input": case["input"],
+                "generated_expected": case.get("expected"),
+                "observation": case.get("actual"),
+            }
+            for case in self.feedback
+            if case.get("suite") in {"unit", "integration"} and not case.get("passed", False)
+        ][:16]
         if typed:
             schema = {
                 "type": "object",
@@ -407,10 +433,17 @@ class ModelGenerator:
                     "example_output": spec["outputs"],
                 },
             }
+            if feedback:
+                diagnosis = {
+                    "type": "string",
+                    "enum": ["implementation", "generated-expectation", "both", "uncertain"],
+                }
+                schema["properties"] = {"diagnosis": diagnosis, **schema["properties"]}
+                schema["required"].insert(0, "diagnosis")
         data = {
-            "operation": "build",
+            "operation": "repair" if typed and feedback else "build",
             "spec": spec,
-            "generated_test_failures": self.feedback,
+            "generated_test_failures": feedback,
         }
         if self.previous_source is not None:
             if len(self.previous_source.encode()) > 40000:
@@ -424,6 +457,7 @@ class ModelGenerator:
                 path_rule="Use exactly these five relative paths; never put main.py at project root.",
             )
         value = self.backend.request(data, schema)
+        self.last_diagnosis = value.get("diagnosis") if typed and feedback else None
         bundle = (
             {
                 "files": [

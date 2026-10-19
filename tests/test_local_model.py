@@ -7,7 +7,14 @@ import pytest
 from agentforge.billing import BudgetLedger
 from agentforge.core import ForgeError
 from agentforge.local_model import LocalTransport
-from agentforge.providers import BUNDLE_SCHEMA, ModelConfig, ResponsesBackend
+from agentforge.providers import (
+    BUNDLE_SCHEMA,
+    ModelConfig,
+    ModelGenerator,
+    RecordedTransport,
+    ResponsesBackend,
+)
+from agentforge.spec import general_plan
 
 
 @pytest.mark.parametrize(
@@ -63,3 +70,41 @@ def test_actual_local_inference_is_distinct_from_fixture_and_has_durable_usage(
     assert backend.receipts[0]["cost_usd"] == "0"
     assert ledger.status("local")["unresolved"][0]["state"] == "unknown"
     assert observed[0]["response_format"]["json_schema"]["strict"]
+
+
+def test_repair_separates_generated_oracle_and_excludes_independent_feedback(tmp_path):
+    artifact = {
+        "diagnosis": "generated-expectation",
+        "source": "import json,sys\njson.dump(json.load(sys.stdin),sys.stdout)\n",
+        "readme": "Echo a JSON integer.",
+        "tests": [{"id": "self-check", "input": 7, "expected": 7}],
+        "example_input": 7,
+        "example_output": 7,
+    }
+    response = {
+        "status": "completed",
+        "output": [{"type": "message", "content": [
+            {"type": "output_text", "text": json.dumps(artifact)}
+        ]}],
+        "usage": {"input_tokens": 100, "output_tokens": 100},
+    }
+    transport = RecordedTransport([response])
+    transport.kind = "local-llama.cpp"
+    generator = ModelGenerator(ResponsesBackend(ModelConfig(model="test-fixture"), transport))
+    generator.feedback = [
+        {"id": "self-check", "suite": "unit", "passed": False, "input": 7,
+         "expected": 8, "actual": {"ok": True, "output": 7}},
+        {"id": "private", "suite": "independent", "passed": False,
+         "input": "PRIVATE-EVALUATOR-SENTINEL", "expected": 0},
+    ]
+    spec = general_plan("Echo the input integer", "echo-integer", "python-json",
+                        inputs={"type": "integer"}, outputs={"type": "integer"})
+    path = generator.generate(spec, tmp_path / "echo-integer")
+    request = transport.requests[0]
+    payload = json.loads(request["input"])
+    assert payload["operation"] == "repair"
+    assert "PRIVATE-EVALUATOR-SENTINEL" not in request["input"]
+    assert payload["generated_test_failures"][0]["generated_expected"] == 8
+    assert payload["generated_test_failures"][0]["observation"]["output"] == 7
+    assert generator.last_diagnosis == "generated-expectation"
+    assert json.loads((path / "tests/cases.json").read_text())[0]["expected"] == 7

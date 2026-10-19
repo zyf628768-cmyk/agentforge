@@ -484,6 +484,7 @@ class PythonContainer:
                     command, raw, max(0.001, deadline - time.monotonic())
                 )
                 if code:
+                    state = strict_json(self._call("inspect", identifier))[0].get("State", {})
                     results.append(
                         {
                             "ok": False,
@@ -491,6 +492,10 @@ class PythonContainer:
                             "exit_code": code,
                             "stdout": redact(stdout),
                             "stderr": redact(stderr),
+                            "termination": {
+                                "oom_killed": state.get("OOMKilled") is True,
+                                "container_exit_code": state.get("ExitCode"),
+                            },
                         }
                     )
                 else:

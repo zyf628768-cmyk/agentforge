@@ -13,15 +13,25 @@ printf 'Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: %s\n
 sudo apt-get update -qq
 sudo apt-get install -y --no-install-recommends docker-ce-rootless-extras
 
-# Official release archive, including the post-2026 gvisor-bin sidecars.
-task_gvisor_dir=$(mktemp -d)
-task_gvisor_url="https://storage.googleapis.com/gvisor/releases/release/latest/$(uname -m)"
-curl --fail --location --proto '=https' "$task_gvisor_url/gvisor.tar.zstd" -o "$task_gvisor_dir/gvisor.tar.zstd"
-curl --fail --location --proto '=https' "$task_gvisor_url/gvisor.tar.zstd.sha512" -o "$task_gvisor_dir/gvisor.tar.zstd.sha512"
-(cd "$task_gvisor_dir" && sha512sum -c gvisor.tar.zstd.sha512)
-sudo tar --zstd -xf "$task_gvisor_dir/gvisor.tar.zstd" -C /usr/local/bin
+# All binaries come from the same fixed source build, never a floating release.
+task_runtime_dir=$(realpath "${1:?explicit pinned runtime directory is required}")
+python - "$task_runtime_dir" <<'PY'
+import hashlib,json,sys
+from pathlib import Path
+root=Path(sys.argv[1]);manifest=json.loads((root/'runtime-provenance.json').read_text())
+assert manifest['commit']=='8ecc635e5e32b8eb1cb2acdc308d480f00bf7264'
+assert {'runsc','gvisor-bin/checkpointgofer','gvisor-bin/runsc-metric-server'} <= set(manifest['files'])
+for name,digest in manifest['files'].items():
+    path=root/name
+    assert not path.is_symlink() and path.resolve().is_relative_to(root)
+    assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
+PY
+sudo install -m 0755 "$task_runtime_dir/runsc" /usr/local/bin/runsc
+sudo install -m 0755 -d /usr/local/bin/gvisor-bin
+sudo install -m 0755 "$task_runtime_dir/gvisor-bin/checkpointgofer" /usr/local/bin/gvisor-bin/checkpointgofer
+sudo install -m 0755 "$task_runtime_dir/gvisor-bin/runsc-metric-server" /usr/local/bin/gvisor-bin/runsc-metric-server
 /usr/local/bin/runsc --version
-sha512sum "$task_gvisor_dir/gvisor.tar.zstd"
+cat "$task_runtime_dir/runtime-provenance.json"
 
 task_uid=$(id -u)
 task_user=$(id -un)
